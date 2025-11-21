@@ -1,0 +1,242 @@
+package com.calendarreminder;
+
+import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.provider.CalendarContract;
+import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
+
+import java.util.Calendar;
+import java.util.HashSet;
+import java.util.Set;
+
+public class CalendarMonitorService extends Service {
+
+    private static final String TAG = "CalendarMonitorService";
+    private static final String CHANNEL_ID = "CalendarReminderChannel";
+    private static final int NOTIFICATION_ID = 1;
+    private static final long CHECK_INTERVAL = 30000; // Vérifier toutes les 30 secondes
+
+    private Handler handler;
+    private Runnable checkRunnable;
+    private Set<String> shownReminders; // Pour éviter d'afficher le même rappel plusieurs fois
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+        startForeground(NOTIFICATION_ID, createNotification());
+        
+        shownReminders = new HashSet<>();
+        handler = new Handler(Looper.getMainLooper());
+        checkRunnable = new Runnable() {
+            @Override
+            public void run() {
+                checkUpcomingReminders();
+                handler.postDelayed(this, CHECK_INTERVAL);
+            }
+        };
+        
+        handler.post(checkRunnable);
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY; // Redémarrer le service s'il est tué
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Calendar Reminder Service",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification createNotification() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE);
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Calendar Reminder")
+                .setContentText("Surveillance du calendrier active")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentIntent(pendingIntent)
+                .build();
+    }
+
+    private void checkUpcomingReminders() {
+        try {
+            ContentResolver contentResolver = getContentResolver();
+            Calendar now = Calendar.getInstance();
+            long currentTime = now.getTimeInMillis();
+            
+            // Vérifier les 5 prochaines minutes
+            long futureTime = currentTime + (5 * 60 * 1000);
+
+            // Requête pour les événements avec rappels
+            Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
+            ContentUris.appendId(builder, currentTime);
+            ContentUris.appendId(builder, futureTime);
+
+            String[] projection = {
+                    CalendarContract.Instances.EVENT_ID,
+                    CalendarContract.Instances.TITLE,
+                    CalendarContract.Instances.BEGIN,
+                    CalendarContract.Instances.END
+            };
+
+            String selection = CalendarContract.Instances.BEGIN + " >= ? AND " +
+                    CalendarContract.Instances.BEGIN + " <= ?";
+
+            Cursor cursor = contentResolver.query(
+                    builder.build(),
+                    projection,
+                    selection,
+                    new String[]{String.valueOf(currentTime), String.valueOf(futureTime)},
+                    CalendarContract.Instances.BEGIN + " ASC"
+            );
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long eventId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID));
+                    String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE));
+                    long begin = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN));
+                    
+                    // Vérifier les rappels pour cet événement
+                    checkRemindersForEvent(eventId, title, begin);
+                }
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la vérification du calendrier", e);
+        }
+    }
+
+    private void checkRemindersForEvent(long eventId, String title, long eventStartTime) {
+        try {
+            ContentResolver contentResolver = getContentResolver();
+            Calendar now = Calendar.getInstance();
+            long currentTime = now.getTimeInMillis();
+            
+            // Vérifier les rappels de cet événement
+            Uri remindersUri = CalendarContract.Reminders.CONTENT_URI;
+            String[] projection = {
+                    CalendarContract.Reminders.MINUTES,
+                    CalendarContract.Reminders.METHOD
+            };
+            String selection = CalendarContract.Reminders.EVENT_ID + " = ? AND " +
+                    CalendarContract.Reminders.METHOD + " = ?";
+            String[] selectionArgs = {
+                    String.valueOf(eventId),
+                    String.valueOf(CalendarContract.Reminders.METHOD_ALERT)
+            };
+
+            Cursor cursor = contentResolver.query(
+                    remindersUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null
+            );
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    int minutes = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Reminders.MINUTES));
+                    long reminderTime = eventStartTime - (minutes * 60 * 1000L);
+                    
+                    // Si le rappel est dans les 30 secondes à venir
+                    long timeDiff = reminderTime - currentTime;
+                    if (timeDiff >= 0 && timeDiff <= 30000) {
+                        // Créer une clé unique pour ce rappel
+                        String reminderKey = eventId + "_" + minutes + "_" + (reminderTime / 1000);
+                        
+                        // Vérifier si ce rappel n'a pas déjà été affiché
+                        if (!shownReminders.contains(reminderKey)) {
+                            shownReminders.add(reminderKey);
+                            // Afficher l'activité de rappel
+                            showReminderActivity(eventId, title, eventStartTime);
+                            
+                            // Nettoyer les anciens rappels après 1 heure
+                            if (shownReminders.size() > 100) {
+                                shownReminders.clear();
+                            }
+                            break; // Ne montrer qu'une fois
+                        }
+                    }
+                }
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la vérification des rappels", e);
+        }
+    }
+
+    private void showReminderActivity(long eventId, String title, long eventStartTime) {
+        Intent intent = new Intent(this, ReminderActivity.class);
+        intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, title);
+        intent.putExtra(ReminderActivity.EXTRA_EVENT_ID, eventId);
+        intent.putExtra(ReminderActivity.EXTRA_EVENT_START_TIME, eventStartTime);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        // Utiliser AlarmManager pour s'assurer que l'activité s'affiche même si l'écran est verrouillé
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (int) eventId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.SECOND, 1);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                    calendar.getTimeInMillis(), pendingIntent);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP,
+                    calendar.getTimeInMillis(), pendingIntent);
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP,
+                    calendar.getTimeInMillis(), pendingIntent);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (handler != null && checkRunnable != null) {
+            handler.removeCallbacks(checkRunnable);
+        }
+    }
+}
+

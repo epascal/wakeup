@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calendar Reminder</string>
+    <string name="event_title">Événement</string>
+    <string name="reminder_5m">Rappel dans 5 min</string>
+    <string name="reminder_10m">Rappel dans 10 min</string>
+    <string name="reminder_30m">Rappel dans 30 min</string>
+    <string name="reminder_1h">Rappel dans 1 heure</string>
+    <string name="done">Terminé</string>
+    <string name="no_reminders">Aucun rappel en cours</string>
+    <string name="service_running">Service de surveillance actif\n\nL\'application surveille votre calendrier en arrière-plan et affichera automatiquement les rappels 30 secondes avant chaque événement.</string>
+    <string name="calendar_permission_required">Permission calendrier requise</string>
+</resources>
+
