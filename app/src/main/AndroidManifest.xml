@@ -82,6 +82,15 @@
             android:exported="false">
         </receiver>
 
+        <receiver
+            android:name=".ServiceNotificationDismissReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.calendarreminder.SERVICE_NOTIFICATION_DISMISSED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
