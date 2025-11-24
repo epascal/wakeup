@@ -102,18 +102,40 @@ public class CalendarMonitorService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Calendar Reminder Service",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Service de surveillance du calendrier");
-            channel.setShowBadge(false);
-            // Empêcher la suppression de la notification
-            channel.setImportance(NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
+                // Supprimer le canal existant s'il existe pour le recréer avec la bonne importance
+                NotificationChannel existingChannel = manager.getNotificationChannel(CHANNEL_ID);
+                if (existingChannel != null) {
+                    // Vérifier si le badge est activé
+                    if (existingChannel.canShowBadge()) {
+                        manager.deleteNotificationChannel(CHANNEL_ID);
+                        Log.d(TAG, "Ancien canal supprimé (badge était activé)");
+                        // Attendre un peu pour que la suppression soit effective
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            // Ignorer
+                        }
+                    } else {
+                        Log.d(TAG, "Canal existant déjà configuré sans badge");
+                        return; // Le canal est déjà correct, pas besoin de le recréer
+                    }
+                }
+                
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Calendar Reminder Service",
+                        NotificationManager.IMPORTANCE_LOW // IMPORTANCE_LOW pour qu'elle soit visible
+                );
+                channel.setDescription("Service de surveillance du calendrier");
+                channel.setShowBadge(false); // Désactiver la pastille de notification
+                channel.enableLights(false); // Désactiver la LED
+                channel.enableVibration(false); // Désactiver la vibration pour cette notification
+                // IMPORTANCE_LOW : visible dans la barre de notification, silencieuse mais visible
+                // Elle sera persistante grâce à setOngoing(true)
                 manager.createNotificationChannel(channel);
+                Log.d(TAG, "Canal de notification créé: " + CHANNEL_ID + " avec importance LOW, badge=false");
             }
         }
     }
@@ -122,18 +144,24 @@ public class CalendarMonitorService extends Service {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 0, notificationIntent,
-                PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Calendar Reminder")
                 .setContentText("Surveillance du calendrier active")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_clock)
                 .setContentIntent(pendingIntent)
-                .setOngoing(true) // Notification persistante
+                .setOngoing(true) // Notification persistante (ne peut pas être supprimée)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setShowWhen(false)
-                .build();
+                .setAutoCancel(false) // Ne pas supprimer automatiquement
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible même sur écran verrouillé
+                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE); // Pas de pastille de notification
+        
+        Notification notification = builder.build();
+        Log.d(TAG, "Notification créée avec ongoing=true, importance=LOW");
+        return notification;
     }
 
     private void checkUpcomingReminders() {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Calendar Reminder</string>
+    <string name="app_name">Wake Up !!!</string>
     <string name="event_title">Événement</string>
     <string name="reminder_5m">Rappel dans 5 min</string>
     <string name="reminder_10m">Rappel dans 10 min</string>
