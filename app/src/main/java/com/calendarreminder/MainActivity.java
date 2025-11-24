@@ -260,28 +260,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private View createEventView(EventReminder reminder, SimpleDateFormat dateFormat, SimpleDateFormat timeFormat) {
-        LinearLayout eventLayout = new LinearLayout(this);
-        eventLayout.setOrientation(LinearLayout.VERTICAL);
-        eventLayout.setPadding(16, 12, 16, 12);
-        eventLayout.setBackgroundResource(android.R.drawable.dialog_holo_dark_frame);
+        View view = getLayoutInflater().inflate(R.layout.item_event, linearLayoutEvents, false);
         
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(0, 0, 0, 12);
-        eventLayout.setLayoutParams(params);
+        TextView titleView = view.findViewById(R.id.textViewTitle);
+        TextView reminderTimeView = view.findViewById(R.id.textViewReminderTime);
+        TextView eventTimeView = view.findViewById(R.id.textViewEventTime);
         
         // Titre de l'événement
-        TextView titleView = new TextView(this);
         titleView.setText(reminder.title.isEmpty() ? "(Sans titre)" : reminder.title);
-        titleView.setTextColor(getResources().getColor(android.R.color.white));
-        titleView.setTextSize(16);
-        titleView.setTypeface(null, android.graphics.Typeface.BOLD);
-        eventLayout.addView(titleView);
         
-        // Heure du rappel (calculée correctement : événement - minutes du rappel)
-        TextView reminderTimeView = new TextView(this);
+        // Heure du rappel
         Date reminderDate = new Date(reminder.reminderTime);
         Date eventDate = new Date(reminder.eventStartTime);
         
@@ -290,9 +278,7 @@ public class MainActivity extends AppCompatActivity {
         long diffMinutes = (reminder.reminderTime - currentTime) / (60 * 1000);
         
         String reminderText;
-        // Afficher l'heure exacte du rappel
         if (diffMinutes < 0) {
-            // Rappel déjà passé (ne devrait pas arriver après filtrage, mais au cas où)
             reminderText = "Rappel passé";
         } else if (diffMinutes < 1) {
             reminderText = "Rappel maintenant";
@@ -303,25 +289,15 @@ public class MainActivity extends AppCompatActivity {
             long mins = diffMinutes % 60;
             reminderText = "Rappel à " + timeFormat.format(reminderDate) + " (dans " + hours + "h" + (mins > 0 ? mins + "min" : "") + ")";
         } else {
-            // Plus d'un jour, afficher la date complète
             reminderText = "Rappel le " + dateFormat.format(reminderDate);
         }
         
         reminderTimeView.setText(reminderText);
-        reminderTimeView.setTextColor(getResources().getColor(android.R.color.holo_blue_light));
-        reminderTimeView.setTextSize(14);
-        reminderTimeView.setPadding(0, 4, 0, 0);
-        eventLayout.addView(reminderTimeView);
         
-        // Heure de l'événement (pour information)
-        TextView eventTimeView = new TextView(this);
+        // Heure de l'événement
         eventTimeView.setText("Événement: " + dateFormat.format(eventDate) + " (rappel " + reminder.reminderMinutes + " min avant)");
-        eventTimeView.setTextColor(getResources().getColor(android.R.color.darker_gray));
-        eventTimeView.setTextSize(12);
-        eventTimeView.setPadding(0, 4, 0, 0);
-        eventLayout.addView(eventTimeView);
         
-        return eventLayout;
+        return view;
     }
 
     private void scheduleTestReminder() {

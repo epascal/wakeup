@@ -1,89 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black"
-    android:padding="24dp"
+    android:background="?attr/colorSurface"
     tools:context=".ReminderActivity">
 
-    <TextView
-        android:id="@+id/textViewEventTitle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/event_title"
-        android:textColor="@color/white"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:padding="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/buttonLayout" />
-
     <LinearLayout
-        android:id="@+id/buttonLayout"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center"
-        android:padding="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textViewEventTitle"
-        app:layout_constraintBottom_toTopOf="@+id/buttonDone">
+        android:padding="24dp">
 
-        <Button
-            android:id="@+id/buttonReminder5m"
+        <TextView
+            android:id="@+id/textViewEventTitle"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/event_title"
+            android:textAppearance="@style/TextAppearance.Material3.DisplayMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/reminder_5m"
-            android:textSize="18sp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/button_primary" />
+            android:layout_marginBottom="16dp"
+            android:text="Snooze"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textColor="?attr/colorOnSurfaceVariant" />
 
-        <Button
-            android:id="@+id/buttonReminder10m"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/reminder_10m"
-            android:textSize="18sp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/button_primary" />
+            android:layout_marginBottom="32dp"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/buttonReminder5m"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:padding="16dp"
+                android:text="@string/reminder_5m"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/buttonReminder10m"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:padding="16dp"
+                android:text="@string/reminder_10m"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/buttonReminder30m"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:padding="16dp"
+                android:text="@string/reminder_30m"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/buttonReminder1h"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:text="@string/reminder_1h"
+                android:textSize="16sp" />
+
+        </LinearLayout>
 
         <Button
-            android:id="@+id/buttonReminder30m"
+            android:id="@+id/buttonDone"
+            style="@style/Widget.Material3.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/reminder_30m"
-            android:textSize="18sp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/button_primary" />
-
-        <Button
-            android:id="@+id/buttonReminder1h"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/reminder_1h"
-            android:textSize="18sp"
-            android:backgroundTint="@color/button_primary" />
+            android:padding="16dp"
+            android:text="@string/done"
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge" />
 
     </LinearLayout>
 
-    <Button
-        android:id="@+id/buttonDone"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/done"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:backgroundTint="@color/button_secondary"
-        android:layout_marginTop="24dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
 
