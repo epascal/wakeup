@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.CalendarContract;
 import android.util.Log;
 
@@ -34,12 +35,16 @@ public class CalendarMonitorService extends Service {
     private Handler handler;
     private Runnable checkRunnable;
     private Set<String> shownReminders; // Pour éviter d'afficher le même rappel plusieurs fois
+    private PowerManager.WakeLock wakeLock; // Pour empêcher la mise en veille
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, createNotification());
+        
+        // Acquérir un WakeLock pour empêcher la mise en veille
+        acquireWakeLock();
         
         shownReminders = new HashSet<>();
         handler = new Handler(Looper.getMainLooper());
@@ -52,11 +57,42 @@ public class CalendarMonitorService extends Service {
         };
         
         handler.post(checkRunnable);
+        Log.d(TAG, "Service créé avec WakeLock");
+    }
+
+    private void acquireWakeLock() {
+        try {
+            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            if (powerManager != null) {
+                wakeLock = powerManager.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK,
+                        "CalendarReminder::ServiceWakeLock"
+                );
+                wakeLock.acquire();
+                Log.d(TAG, "WakeLock acquis");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de l'acquisition du WakeLock", e);
+        }
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+            wakeLock = null;
+            Log.d(TAG, "WakeLock libéré");
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY; // Redémarrer le service s'il est tué
+        // S'assurer que le WakeLock est actif
+        if (wakeLock == null || !wakeLock.isHeld()) {
+            acquireWakeLock();
+        }
+        
+        // Redémarrer le service s'il est tué et ne pas le tuer même en cas de manque de mémoire
+        return START_STICKY | START_REDELIVER_INTENT;
     }
 
     @Override
@@ -71,6 +107,10 @@ public class CalendarMonitorService extends Service {
                     "Calendar Reminder Service",
                     NotificationManager.IMPORTANCE_LOW
             );
+            channel.setDescription("Service de surveillance du calendrier");
+            channel.setShowBadge(false);
+            // Empêcher la suppression de la notification
+            channel.setImportance(NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
@@ -89,6 +129,10 @@ public class CalendarMonitorService extends Service {
                 .setContentText("Surveillance du calendrier active")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(pendingIntent)
+                .setOngoing(true) // Notification persistante
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setShowWhen(false)
                 .build();
     }
 
@@ -200,17 +244,15 @@ public class CalendarMonitorService extends Service {
     }
 
     private void showReminderActivity(long eventId, String title, long eventStartTime) {
-        Intent intent = new Intent(this, ReminderActivity.class);
+        // Utiliser le même mécanisme que le bouton de test : BroadcastReceiver
+        Intent intent = new Intent(this, ReminderReceiver.class);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, title);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_ID, eventId);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_START_TIME, eventStartTime);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
-                Intent.FLAG_ACTIVITY_CLEAR_TOP |
-                Intent.FLAG_ACTIVITY_SINGLE_TOP);
         
         // Utiliser AlarmManager pour s'assurer que l'activité s'affiche même si l'écran est verrouillé
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 this,
                 (int) eventId,
                 intent,
@@ -229,6 +271,8 @@ public class CalendarMonitorService extends Service {
             alarmManager.set(AlarmManager.RTC_WAKEUP,
                     calendar.getTimeInMillis(), pendingIntent);
         }
+        
+        Log.d(TAG, "Rappel programmé pour l'événement: " + title + " (ID: " + eventId + ")");
     }
 
     @Override
@@ -237,6 +281,8 @@ public class CalendarMonitorService extends Service {
         if (handler != null && checkRunnable != null) {
             handler.removeCallbacks(checkRunnable);
         }
+        releaseWakeLock();
+        Log.d(TAG, "Service détruit");
     }
 }
 

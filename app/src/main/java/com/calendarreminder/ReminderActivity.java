@@ -6,7 +6,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -27,9 +33,33 @@ public class ReminderActivity extends AppCompatActivity {
     private long eventId;
     private long eventStartTime;
 
+    private static final String TAG = "ReminderActivity";
+    private static final long VIBRATION_DURATION = 2 * 60 * 1000L; // 2 minutes maximum
+    // Pattern optimisé pour alarmes : 3 vibrations courtes (300ms) avec pauses (200ms), puis longue pause (800ms)
+    // Format: {délai initial, vibration1, pause1, vibration2, pause2, vibration3, pause3, ...}
+    // Ce pattern est répété en boucle pour une meilleure perception
+    private static final long[] VIBRATION_PATTERN = {
+        0,      // Démarrer immédiatement
+        300,    // Vibrer 300ms
+        200,    // Pause 200ms
+        300,    // Vibrer 300ms
+        200,    // Pause 200ms
+        300,    // Vibrer 300ms
+        800     // Longue pause 800ms avant de répéter
+    };
+    
+    private Vibrator vibrator;
+    private Handler vibrationHandler;
+    private Runnable stopVibrationRunnable;
+    private long vibrationStartTime;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        Log.d(TAG, "ReminderActivity.onCreate() appelé");
+        Log.d(TAG, "Intent: " + getIntent());
+        Log.d(TAG, "Extras: " + getIntent().getExtras());
 
         // Activer l'écran et déverrouiller si nécessaire
         turnScreenOn();
@@ -40,9 +70,77 @@ public class ReminderActivity extends AppCompatActivity {
         eventTitle = getIntent().getStringExtra(EXTRA_EVENT_TITLE);
         eventId = getIntent().getLongExtra(EXTRA_EVENT_ID, -1);
         eventStartTime = getIntent().getLongExtra(EXTRA_EVENT_START_TIME, 0);
+        
+        Log.d(TAG, "Titre: " + eventTitle);
+        Log.d(TAG, "Event ID: " + eventId);
+        Log.d(TAG, "Event Start Time: " + eventStartTime);
 
         initViews();
         setupListeners();
+        startVibration();
+        
+        Log.d(TAG, "ReminderActivity initialisée avec succès");
+    }
+
+    private void startVibration() {
+        try {
+            // Obtenir le Vibrator selon la version d'Android
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                VibratorManager vibratorManager = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                vibrator = vibratorManager.getDefaultVibrator();
+            } else {
+                vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            }
+            
+            if (vibrator == null || !vibrator.hasVibrator()) {
+                Log.w(TAG, "Le téléphone ne supporte pas la vibration");
+                return;
+            }
+            
+            vibrationStartTime = System.currentTimeMillis();
+            vibrationHandler = new Handler(Looper.getMainLooper());
+            
+            // Pattern de vibration répétitif
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                VibrationEffect vibrationEffect = VibrationEffect.createWaveform(
+                        VIBRATION_PATTERN,
+                        0 // Répéter à partir de l'index 0
+                );
+                vibrator.vibrate(vibrationEffect);
+            } else {
+                vibrator.vibrate(VIBRATION_PATTERN, 0);
+            }
+            
+            Log.d(TAG, "Vibration démarrée");
+            
+            // Arrêter la vibration après 2 minutes maximum
+            stopVibrationRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    stopVibration();
+                    Log.d(TAG, "Vibration arrêtée automatiquement après 2 minutes");
+                }
+            };
+            vibrationHandler.postDelayed(stopVibrationRunnable, VIBRATION_DURATION);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors du démarrage de la vibration", e);
+        }
+    }
+
+    private void stopVibration() {
+        if (vibrator != null) {
+            try {
+                vibrator.cancel();
+                Log.d(TAG, "Vibration arrêtée");
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur lors de l'arrêt de la vibration", e);
+            }
+        }
+        
+        if (vibrationHandler != null && stopVibrationRunnable != null) {
+            vibrationHandler.removeCallbacks(stopVibrationRunnable);
+        }
     }
 
     private void turnScreenOn() {
@@ -78,38 +176,79 @@ public class ReminderActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        buttonReminder5m.setOnClickListener(v -> scheduleReminder(5));
-        buttonReminder10m.setOnClickListener(v -> scheduleReminder(10));
-        buttonReminder30m.setOnClickListener(v -> scheduleReminder(30));
-        buttonReminder1h.setOnClickListener(v -> scheduleReminder(60));
-        buttonDone.setOnClickListener(v -> finish());
+        buttonReminder5m.setOnClickListener(v -> {
+            stopVibration();
+            scheduleReminder(5);
+        });
+        buttonReminder10m.setOnClickListener(v -> {
+            stopVibration();
+            scheduleReminder(10);
+        });
+        buttonReminder30m.setOnClickListener(v -> {
+            stopVibration();
+            scheduleReminder(30);
+        });
+        buttonReminder1h.setOnClickListener(v -> {
+            stopVibration();
+            scheduleReminder(60);
+        });
+        buttonDone.setOnClickListener(v -> {
+            stopVibration();
+            finish();
+        });
     }
 
     private void scheduleReminder(int minutes) {
+        Log.d(TAG, "Programmation d'un rappel dans " + minutes + " minutes");
+        
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(this, ReminderActivity.class);
+        if (alarmManager == null) {
+            Log.e(TAG, "AlarmManager est null!");
+            return;
+        }
+        
+        // Calculer le nouveau temps de début de l'événement (même si l'événement est passé)
+        // On ajoute les minutes au temps actuel pour le prochain rappel
+        long newEventStartTime = System.currentTimeMillis() + (minutes * 60 * 1000L);
+        
+        // Utiliser ReminderReceiver comme pour les autres rappels
+        Intent intent = new Intent(this, ReminderReceiver.class);
         intent.putExtra(EXTRA_EVENT_TITLE, eventTitle);
         intent.putExtra(EXTRA_EVENT_ID, eventId);
-        intent.putExtra(EXTRA_EVENT_START_TIME, eventStartTime);
+        intent.putExtra(EXTRA_EVENT_START_TIME, newEventStartTime);
         
-        PendingIntent pendingIntent = PendingIntent.getActivity(
+        // Utiliser un ID unique basé sur l'eventId et les minutes pour éviter les conflits
+        int requestCode = (int) (eventId + minutes + System.currentTimeMillis() % 100000);
+        
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 this,
-                (int) (eventId + minutes),
+                requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MINUTE, minutes);
+        long triggerTime = calendar.getTimeInMillis();
+        
+        Log.d(TAG, "Rappel programmé pour: " + triggerTime + " (dans " + minutes + " minutes)");
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                    calendar.getTimeInMillis(), pendingIntent);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP,
-                    calendar.getTimeInMillis(), pendingIntent);
-        } else {
-            alarmManager.set(AlarmManager.RTC_WAKEUP,
-                    calendar.getTimeInMillis(), pendingIntent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                        triggerTime, pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP,
+                        triggerTime, pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP,
+                        triggerTime, pendingIntent);
+            }
+            
+            Log.d(TAG, "Rappel programmé avec succès");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Erreur de sécurité lors de la programmation du rappel", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la programmation du rappel", e);
         }
 
         finish();
@@ -118,6 +257,8 @@ public class ReminderActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopVibration();
+        Log.d(TAG, "ReminderActivity détruite, vibration arrêtée");
     }
 }
 
