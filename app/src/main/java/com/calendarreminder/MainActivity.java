@@ -130,11 +130,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startService() {
+        long startTime = System.currentTimeMillis();
+        Log.d("MainActivity", "startService() appelé à " + startTime);
+        
         Intent serviceIntent = new Intent(this, CalendarMonitorService.class);
+        long intentCreated = System.currentTimeMillis();
+        Log.d("MainActivity", "Intent créé en " + (intentCreated - startTime) + " ms");
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            long serviceStart = System.currentTimeMillis();
             startForegroundService(serviceIntent);
+            long serviceEnd = System.currentTimeMillis();
+            Log.d("MainActivity", "startForegroundService() appelé en " + (serviceEnd - serviceStart) + " ms");
+            Log.d("MainActivity", "startService() total: " + (serviceEnd - startTime) + " ms");
         } else {
+            long serviceStart = System.currentTimeMillis();
             startService(serviceIntent);
+            long serviceEnd = System.currentTimeMillis();
+            Log.d("MainActivity", "startService() appelé en " + (serviceEnd - serviceStart) + " ms");
+            Log.d("MainActivity", "startService() total: " + (serviceEnd - startTime) + " ms");
         }
         Toast.makeText(this, "Service de surveillance du calendrier démarré", Toast.LENGTH_SHORT).show();
 

@@ -29,35 +29,82 @@ public class CalendarMonitorService extends Service {
 
     private static final String TAG = "CalendarMonitorService";
     private static final String CHANNEL_ID = "CalendarReminderChannel";
+    public static final String ACTION_RECREATE_NOTIFICATION = "RECREATE_NOTIFICATION";
+    public static final String ACTION_FORCE_NOTIFICATION_CHECK = "FORCE_NOTIFICATION_CHECK";
+
     private static final int NOTIFICATION_ID = 1;
     private static final long CHECK_INTERVAL = 30000; // Vérifier toutes les 30 secondes
+    private static final long NOTIFICATION_CHECK_INTERVAL = 5000; // Vérifier la notification toutes les 5 secondes
 
     private Handler handler;
     private Runnable checkRunnable;
+    private Runnable notificationCheckRunnable;
     private Set<String> shownReminders; // Pour éviter d'afficher le même rappel plusieurs fois
     private PowerManager.WakeLock wakeLock; // Pour empêcher la mise en veille
 
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
-        startForeground(NOTIFICATION_ID, createNotification());
+        long startTime = System.currentTimeMillis();
+        Log.d(TAG, "Service onCreate() démarré à " + startTime);
+        
+        // PRIORITÉ ABSOLUE: Créer le canal et démarrer en foreground IMMÉDIATEMENT
+        // Ceci doit être fait dans les 5 secondes pour éviter les crashs ANR
+        long channelStart = System.currentTimeMillis();
+        createNotificationChannelFast();
+        long channelEnd = System.currentTimeMillis();
+        Log.d(TAG, "Canal créé en " + (channelEnd - channelStart) + " ms");
+        
+        long notificationStart = System.currentTimeMillis();
+        try {
+            Notification notification = createNotificationFast();
+            long notificationCreated = System.currentTimeMillis();
+            Log.d(TAG, "Notification créée en " + (notificationCreated - notificationStart) + " ms");
+            
+            startForeground(NOTIFICATION_ID, notification);
+            long foregroundEnd = System.currentTimeMillis();
+            Log.d(TAG, "startForeground() appelé en " + (foregroundEnd - notificationCreated) + " ms");
+            Log.d(TAG, "Service démarré en foreground IMMÉDIATEMENT - Total: " + (foregroundEnd - startTime) + " ms");
+            // Vérifier rapidement que la notification est bien visible
+            new Handler(Looper.getMainLooper()).postDelayed(this::ensureNotificationIsVisible, 2000);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors du démarrage en foreground", e);
+        }
 
-        // Acquérir un WakeLock pour empêcher la mise en veille
-        acquireWakeLock();
+        // Initialiser le reste en arrière-plan pour ne pas bloquer l'affichage de la notification
+        new Thread(() -> {
+            // Acquérir un WakeLock pour empêcher la mise en veille
+            acquireWakeLock();
 
-        shownReminders = new HashSet<>();
-        handler = new Handler(Looper.getMainLooper());
-        checkRunnable = new Runnable() {
-            @Override
-            public void run() {
-                checkUpcomingReminders();
-                handler.postDelayed(this, CHECK_INTERVAL);
-            }
-        };
+            shownReminders = new HashSet<>();
+            handler = new Handler(Looper.getMainLooper());
+            
+            // Runnable pour vérifier les rappels
+            checkRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    checkUpcomingReminders();
+                    handler.postDelayed(this, CHECK_INTERVAL);
+                }
+            };
+            
+            // Runnable pour vérifier la notification
+            notificationCheckRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    ensureNotificationIsVisible();
+                    handler.postDelayed(this, NOTIFICATION_CHECK_INTERVAL);
+                }
+            };
 
-        handler.post(checkRunnable);
-        Log.d(TAG, "Service créé avec WakeLock");
+            // Démarrer les vérifications
+            handler.post(checkRunnable);
+            handler.post(notificationCheckRunnable);
+            
+            Log.d(TAG, "Initialisation en arrière-plan terminée");
+        }).start();
+        
+        Log.d(TAG, "Service créé avec notification instantanée");
     }
 
     private void acquireWakeLock() {
@@ -85,22 +132,50 @@ public class CalendarMonitorService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // S'assurer que le WakeLock est actif
-        if (wakeLock == null || !wakeLock.isHeld()) {
-            acquireWakeLock();
+        long startTime = System.currentTimeMillis();
+        Log.d(TAG, "onStartCommand() appelé à " + startTime);
+        
+        // PRIORITÉ: S'assurer que la notification est affichée IMMÉDIATEMENT
+        // Utiliser createNotificationFast() pour éviter tout délai
+        // Ne pas recréer le canal ici car on ne peut pas supprimer un canal utilisé par un service foreground
+        try {
+            long notificationStart = System.currentTimeMillis();
+            Notification notification = createNotificationFast();
+            long notificationCreated = System.currentTimeMillis();
+            Log.d(TAG, "Notification créée dans onStartCommand() en " + (notificationCreated - notificationStart) + " ms");
+            
+            startForeground(NOTIFICATION_ID, notification);
+            long foregroundEnd = System.currentTimeMillis();
+            Log.d(TAG, "startForeground() appelé dans onStartCommand() en " + (foregroundEnd - notificationCreated) + " ms");
+            Log.d(TAG, "Service en foreground dans onStartCommand() - Total: " + (foregroundEnd - startTime) + " ms");
+            new Handler(Looper.getMainLooper()).postDelayed(this::ensureNotificationIsVisible, 2000);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors du démarrage en foreground dans onStartCommand()", e);
         }
-
-        // S'assurer que le service est en foreground immédiatement
-        startForeground(NOTIFICATION_ID, createNotification());
+        
+        // S'assurer que le WakeLock est actif (en arrière-plan pour ne pas bloquer)
+        new Thread(() -> {
+            if (wakeLock == null || !wakeLock.isHeld()) {
+                acquireWakeLock();
+            }
+        }).start();
 
         // Vérifier si c'est une demande de recréation de notification
-        if (intent != null && "RECREATE_NOTIFICATION".equals(intent.getAction())) {
-            Log.d(TAG, "Recréation de la notification demandée");
-            // Recréer la notification en foreground
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.notify(NOTIFICATION_ID, createNotification());
-                Log.d(TAG, "Notification du service recréée");
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_RECREATE_NOTIFICATION.equals(action)) {
+                Log.d(TAG, "Recréation de la notification demandée");
+                // Recréer la notification en foreground avec la version complète
+                NotificationManager manager = getSystemService(NotificationManager.class);
+                if (manager != null) {
+                    manager.notify(NOTIFICATION_ID, createNotification());
+                    Log.d(TAG, "Notification du service recréée");
+                }
+                // Vérifier immédiatement et annuler les fallbacks si tout va bien
+                ensureNotificationIsVisible();
+            } else if (ACTION_FORCE_NOTIFICATION_CHECK.equals(action)) {
+                Log.d(TAG, "Force notification check demandé via AlarmManager");
+                ensureNotificationIsVisible();
             }
         }
 
@@ -112,6 +187,97 @@ public class CalendarMonitorService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    /**
+     * Version ultra-rapide de la création du canal de notification
+     * Utilisée au démarrage pour afficher la notification instantanément
+     */
+    private void createNotificationChannelFast() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                NotificationManager manager = getSystemService(NotificationManager.class);
+                if (manager != null) {
+                    // Vérifier si le canal existe déjà et s'il a la bonne importance
+                    NotificationChannel existingChannel = manager.getNotificationChannel(CHANNEL_ID);
+                    if (existingChannel != null) {
+                        // Si l'importance n'est pas DEFAULT, supprimer et recréer
+                        if (existingChannel.getImportance() != NotificationManager.IMPORTANCE_DEFAULT) {
+                            Log.d(TAG, "Canal existant avec mauvaise importance (" + existingChannel.getImportance() + "), suppression...");
+                            manager.deleteNotificationChannel(CHANNEL_ID);
+                            // Attendre un peu pour que la suppression soit effective
+                            try {
+                                Thread.sleep(50);
+                            } catch (InterruptedException e) {
+                                // Ignorer
+                            }
+                        } else {
+                            Log.d(TAG, "Canal de notification existe déjà avec IMPORTANCE_DEFAULT, pas besoin de le recréer");
+                            return;
+                        }
+                    }
+                    
+                    // IMPORTANCE_DEFAULT pour afficher la notification immédiatement
+                    // IMPORTANCE_MIN peut retarder l'affichage de la notification
+                    NotificationChannel channel = new NotificationChannel(
+                            CHANNEL_ID,
+                            "Calendar Reminder Service",
+                            NotificationManager.IMPORTANCE_DEFAULT
+                    );
+                    channel.setShowBadge(false);
+                    channel.enableLights(false);
+                    channel.enableVibration(false);
+                    manager.createNotificationChannel(channel);
+                    Log.d(TAG, "Canal de notification créé rapidement avec IMPORTANCE_DEFAULT");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur lors de la création rapide du canal", e);
+            }
+        }
+    }
+
+    /**
+     * Version ultra-rapide de la création de notification
+     * Utilisée au démarrage pour afficher la notification instantanément
+     */
+    private Notification createNotificationFast() {
+        long startTime = System.currentTimeMillis();
+        
+        long intentStart = System.currentTimeMillis();
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        long intentEnd = System.currentTimeMillis();
+        Log.d(TAG, "PendingIntent créé en " + (intentEnd - intentStart) + " ms");
+
+        PendingIntent deletePendingIntent = createDeletePendingIntent();
+
+        long builderStart = System.currentTimeMillis();
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Calendar Reminder")
+                .setContentText("Surveillance du calendrier active")
+                .setSmallIcon(R.drawable.ic_clock)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setShowWhen(false)
+                .setAutoCancel(false)
+                .setDeleteIntent(deletePendingIntent)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+        }
+
+        Notification notification = builder.build();
+        long builderEnd = System.currentTimeMillis();
+        Log.d(TAG, "Notification.Builder.build() en " + (builderEnd - builderStart) + " ms");
+        Log.d(TAG, "createNotificationFast() total: " + (builderEnd - startTime) + " ms");
+        
+        return notification;
     }
 
     private void createNotificationChannel() {
@@ -141,7 +307,7 @@ public class CalendarMonitorService extends Service {
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID,
                         "Calendar Reminder Service",
-                        NotificationManager.IMPORTANCE_DEFAULT // Augmenter la priorité pour visibilité
+                        NotificationManager.IMPORTANCE_DEFAULT // IMPORTANCE_DEFAULT pour affichage immédiat
                 );
                 channel.setDescription("Service de surveillance du calendrier");
                 channel.setShowBadge(false);
@@ -160,15 +326,7 @@ public class CalendarMonitorService extends Service {
                 this, 0, notificationIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
-        // Créer un intent pour détecter la suppression de la notification
-        Intent deleteIntent = new Intent(this, ServiceNotificationDismissReceiver.class);
-        deleteIntent.setAction(ServiceNotificationDismissReceiver.ACTION_SERVICE_NOTIFICATION_DISMISSED);
-
-        PendingIntent deletePendingIntent = PendingIntent.getBroadcast(
-                this,
-                0,
-                deleteIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent deletePendingIntent = createDeletePendingIntent();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Calendar Reminder")
@@ -184,9 +342,67 @@ public class CalendarMonitorService extends Service {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible même sur écran verrouillé
                 .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE); // Pas de pastille de notification
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+        }
+
         Notification notification = builder.build();
         Log.d(TAG, "Notification créée avec ongoing=true, deleteIntent configuré");
         return notification;
+    }
+
+    private PendingIntent createDeletePendingIntent() {
+        Intent deleteIntent = new Intent(this, ServiceNotificationDismissReceiver.class);
+        deleteIntent.setAction(ServiceNotificationDismissReceiver.ACTION_SERVICE_NOTIFICATION_DISMISSED);
+
+        return PendingIntent.getBroadcast(
+                this,
+                0,
+                deleteIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private void ensureNotificationIsVisible() {
+        try {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                // Vérifier si la notification est toujours active
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    android.service.notification.StatusBarNotification[] notifications = manager.getActiveNotifications();
+                    boolean notificationExists = false;
+                    
+                    for (android.service.notification.StatusBarNotification sbn : notifications) {
+                        if (sbn.getId() == NOTIFICATION_ID) {
+                            notificationExists = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!notificationExists) {
+                        Log.w(TAG, "Notification manquante détectée, recréation...");
+                        // Recréer la notification
+                        startForeground(NOTIFICATION_ID, createNotification());
+                        Log.d(TAG, "Notification recréée avec succès");
+                        ServiceNotificationDismissReceiver.cancelFallback(this);
+                    } else {
+                        Log.d(TAG, "Notification toujours présente");
+                        ServiceNotificationDismissReceiver.cancelFallback(this);
+                    }
+                } else {
+                    // Pour les versions plus anciennes, simplement mettre à jour la notification
+                    manager.notify(NOTIFICATION_ID, createNotification());
+                    ServiceNotificationDismissReceiver.cancelFallback(this);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la vérification de la notification", e);
+            // En cas d'erreur, essayer de recréer la notification
+            try {
+                startForeground(NOTIFICATION_ID, createNotification());
+            } catch (Exception e2) {
+                Log.e(TAG, "Erreur lors de la recréation de la notification", e2);
+            }
+        }
     }
 
     private void checkUpcomingReminders() {
@@ -330,10 +546,16 @@ public class CalendarMonitorService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (handler != null && checkRunnable != null) {
-            handler.removeCallbacks(checkRunnable);
+        if (handler != null) {
+            if (checkRunnable != null) {
+                handler.removeCallbacks(checkRunnable);
+            }
+            if (notificationCheckRunnable != null) {
+                handler.removeCallbacks(notificationCheckRunnable);
+            }
         }
         releaseWakeLock();
+        ServiceNotificationDismissReceiver.cancelFallback(this);
         Log.d(TAG, "Service détruit");
     }
 }
