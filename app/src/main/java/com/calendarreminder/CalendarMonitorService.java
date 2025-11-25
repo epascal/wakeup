@@ -90,6 +90,9 @@ public class CalendarMonitorService extends Service {
             acquireWakeLock();
         }
 
+        // S'assurer que le service est en foreground immédiatement
+        startForeground(NOTIFICATION_ID, createNotification());
+
         // Vérifier si c'est une demande de recréation de notification
         if (intent != null && "RECREATE_NOTIFICATION".equals(intent.getAction())) {
             Log.d(TAG, "Recréation de la notification demandée");
@@ -138,17 +141,15 @@ public class CalendarMonitorService extends Service {
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID,
                         "Calendar Reminder Service",
-                        NotificationManager.IMPORTANCE_LOW // IMPORTANCE_LOW pour qu'elle soit visible
+                        NotificationManager.IMPORTANCE_DEFAULT // Augmenter la priorité pour visibilité
                 );
                 channel.setDescription("Service de surveillance du calendrier");
-                channel.setShowBadge(false); // Désactiver la pastille de notification
-                channel.enableLights(false); // Désactiver la LED
-                channel.enableVibration(false); // Désactiver la vibration pour cette notification
-                // IMPORTANCE_LOW : visible dans la barre de notification, silencieuse mais
-                // visible
-                // Elle sera persistante grâce à setOngoing(true)
+                channel.setShowBadge(false);
+                channel.enableLights(false);
+                channel.enableVibration(false);
+
                 manager.createNotificationChannel(channel);
-                Log.d(TAG, "Canal de notification créé: " + CHANNEL_ID + " avec importance LOW, badge=false");
+                Log.d(TAG, "Canal de notification créé: " + CHANNEL_ID + " avec importance DEFAULT");
             }
         }
     }
@@ -176,7 +177,7 @@ public class CalendarMonitorService extends Service {
                 .setContentIntent(pendingIntent)
                 .setOngoing(true) // Notification persistante (ne peut pas être supprimée)
                 .setDeleteIntent(deletePendingIntent) // Détecter si elle est quand même supprimée
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setShowWhen(false)
                 .setAutoCancel(false) // Ne pas supprimer automatiquement

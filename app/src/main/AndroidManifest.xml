@@ -29,6 +29,9 @@
     
     <!-- Permission pour la vibration -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    
+    <!-- Permission pour ignorer l'optimisation de la batterie -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"
