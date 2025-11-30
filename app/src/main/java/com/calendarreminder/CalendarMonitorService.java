@@ -179,9 +179,8 @@ public class CalendarMonitorService extends Service {
             }
         }
 
-        // Redémarrer le service s'il est tué et ne pas le tuer même en cas de manque de
-        // mémoire
-        return START_STICKY | START_REDELIVER_INTENT;
+        // Redémarrer le service s'il est tué et redélivrer l'intent
+        return START_REDELIVER_INTENT;
     }
 
     @Override
