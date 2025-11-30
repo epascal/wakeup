@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.Manifest;
 import android.app.AlarmManager;
@@ -28,6 +28,7 @@ import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -100,14 +101,37 @@ public class MainActivity extends AppCompatActivity {
         // 3. Vérifier la permission d'affichage au-dessus d'autres applications
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
-                startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE);
+                showOverlayPermissionDialog();
             } else {
                 checkBatteryOptimization();
             }
         } else {
             checkBatteryOptimization();
         }
+    }
+
+    private void showOverlayPermissionDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.overlay_permission_title)
+                .setMessage(R.string.overlay_permission_message)
+                .setPositiveButton(R.string.open_settings, (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+                    Uri uri = Uri.parse("package:" + getPackageName());
+                    intent.setData(uri);
+                    try {
+                        startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE);
+                    } catch (Exception e) {
+                        // Fallback: open general settings if specific intent fails
+                        Intent fallbackIntent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+                        startActivityForResult(fallbackIntent, OVERLAY_PERMISSION_REQUEST_CODE);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, (dialog, which) -> {
+                    Toast.makeText(this, R.string.overlay_permission_required, Toast.LENGTH_LONG).show();
+                    checkBatteryOptimization(); // Continue anyway
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void checkBatteryOptimization() {
@@ -150,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("MainActivity", "startService() appelé en " + (serviceEnd - serviceStart) + " ms");
             Log.d("MainActivity", "startService() total: " + (serviceEnd - startTime) + " ms");
         }
-        Toast.makeText(this, "Service de surveillance du calendrier démarré", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.service_started, Toast.LENGTH_SHORT).show();
 
         // Démarrer la mise à jour périodique des événements
         loadUpcomingEvents();
@@ -318,7 +342,7 @@ public class MainActivity extends AppCompatActivity {
         TextView eventTimeView = view.findViewById(R.id.textViewEventTime);
 
         // Titre de l'événement
-        titleView.setText(reminder.title.isEmpty() ? "(Sans titre)" : reminder.title);
+        titleView.setText(reminder.title.isEmpty() ? getString(R.string.no_title) : reminder.title);
 
         // Heure du rappel
         Date reminderDate = new Date(reminder.reminderTime);
@@ -330,25 +354,24 @@ public class MainActivity extends AppCompatActivity {
 
         String reminderText;
         if (diffMinutes < 0) {
-            reminderText = "Rappel passé";
+            reminderText = getString(R.string.reminder_past);
         } else if (diffMinutes < 1) {
-            reminderText = "Rappel maintenant";
+            reminderText = getString(R.string.reminder_now);
         } else if (diffMinutes < 60) {
-            reminderText = "Rappel à " + timeFormat.format(reminderDate) + " (dans " + diffMinutes + " min)";
+            reminderText = getString(R.string.reminder_at, timeFormat.format(reminderDate), diffMinutes);
         } else if (diffMinutes < 1440) {
             long hours = diffMinutes / 60;
             long mins = diffMinutes % 60;
-            reminderText = "Rappel à " + timeFormat.format(reminderDate) + " (dans " + hours + "h"
-                    + (mins > 0 ? mins + "min" : "") + ")";
+            String minsStr = mins > 0 ? mins + "min" : "";
+            reminderText = getString(R.string.reminder_at_hours, timeFormat.format(reminderDate), hours, minsStr);
         } else {
-            reminderText = "Rappel le " + dateFormat.format(reminderDate);
+            reminderText = getString(R.string.reminder_on, dateFormat.format(reminderDate));
         }
 
         reminderTimeView.setText(reminderText);
 
         // Heure de l'événement
-        eventTimeView.setText(
-                "Événement: " + dateFormat.format(eventDate) + " (rappel " + reminder.reminderMinutes + " min avant)");
+        eventTimeView.setText(getString(R.string.event_time, dateFormat.format(eventDate), reminder.reminderMinutes));
 
         return view;
     }
@@ -360,7 +383,7 @@ public class MainActivity extends AppCompatActivity {
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
         if (alarmManager == null) {
             Log.e("MainActivity", "AlarmManager est null!");
-            Toast.makeText(this, "Erreur: AlarmManager non disponible", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.alarm_manager_error, Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -368,9 +391,7 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
                 Log.w("MainActivity", "Permission SCHEDULE_EXACT_ALARM non accordée");
-                Toast.makeText(this,
-                        "Permission requise pour les alarmes exactes. Veuillez l'activer dans les paramètres.",
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.exact_alarm_permission_required, Toast.LENGTH_LONG).show();
                 Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
                 startActivity(intent);
                 return;
@@ -383,7 +404,7 @@ public class MainActivity extends AppCompatActivity {
         // Utiliser un BroadcastReceiver pour contourner les restrictions BAL d'Android
         // 15
         Intent intent = new Intent(this, ReminderReceiver.class);
-        intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, "Rappel de test");
+        intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, getString(R.string.test_reminder_title));
         intent.putExtra(ReminderActivity.EXTRA_EVENT_ID, -999L); // ID de test
         intent.putExtra(ReminderActivity.EXTRA_EVENT_START_TIME, System.currentTimeMillis() + 15000);
 
@@ -417,10 +438,10 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("MainActivity", "Alarme programmée avec set");
             }
 
-            Toast.makeText(this, "Rappel de test programmé dans 15 secondes", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.test_reminder_scheduled, Toast.LENGTH_LONG).show();
         } catch (SecurityException e) {
             Log.e("MainActivity", "Erreur de sécurité lors de la programmation de l'alarme", e);
-            Toast.makeText(this, "Erreur: Permission refusée pour les alarmes exactes", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.exact_alarm_permission_denied, Toast.LENGTH_LONG).show();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 Intent settingsIntent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
                 startActivity(settingsIntent);
@@ -434,12 +455,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Désactiver le bouton temporairement pour éviter les clics multiples
         buttonTestReminder.setEnabled(false);
-        buttonTestReminder.setText("Rappel programmé...");
+        buttonTestReminder.setText(R.string.test_reminder_scheduled_state);
 
         // Réactiver le bouton après 20 secondes
         handler.postDelayed(() -> {
             buttonTestReminder.setEnabled(true);
-            buttonTestReminder.setText("Tester le rappel (15 secondes)");
+            buttonTestReminder.setText(R.string.test_reminder_button);
         }, 20000);
     }
 
@@ -488,7 +509,7 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 checkNotificationPermission();
             } else {
-                Toast.makeText(this, "Permission calendrier requise pour fonctionner", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.calendar_permission_denied, Toast.LENGTH_LONG).show();
             }
         } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
             // Que la permission soit accordée ou non, on passe à la suite
@@ -504,7 +525,7 @@ public class MainActivity extends AppCompatActivity {
                 if (Settings.canDrawOverlays(this)) {
                     checkBatteryOptimization();
                 } else {
-                    Toast.makeText(this, "Permission d'affichage requise", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.overlay_permission_required, Toast.LENGTH_LONG).show();
                     checkBatteryOptimization(); // Continuer quand même
                 }
             }

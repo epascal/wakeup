@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -158,7 +158,7 @@ public class ReminderActivity extends AppCompatActivity {
         PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         PowerManager.WakeLock wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "CalendarReminder::WakeLock");
+                "WakeUp::WakeLock");
         wakeLock.acquire(10 * 60 * 1000L); // 10 minutes
     }
 

@@ -39,14 +39,14 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CalendarReminder"
+        android:theme="@style/Theme.WakeUp"
         tools:targetApi="31">
         
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.CalendarReminder.FullScreen">
+            android:theme="@style/Theme.WakeUp.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -61,7 +61,7 @@
             android:turnScreenOn="true"
             android:allowEmbedded="true"
             android:allowTaskReparenting="false"
-            android:theme="@style/Theme.CalendarReminder.FullScreen">
+            android:theme="@style/Theme.WakeUp.FullScreen">
         </activity>
 
         <service
@@ -90,7 +90,7 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.calendarreminder.SERVICE_NOTIFICATION_DISMISSED" />
+                <action android:name="org.wakeup.SERVICE_NOTIFICATION_DISMISSED" />
             </intent-filter>
         </receiver>
 

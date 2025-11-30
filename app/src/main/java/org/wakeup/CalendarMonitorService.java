@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -28,7 +28,7 @@ import java.util.Set;
 public class CalendarMonitorService extends Service {
 
     private static final String TAG = "CalendarMonitorService";
-    private static final String CHANNEL_ID = "CalendarReminderChannel";
+    private static final String CHANNEL_ID = "WakeUpChannel";
     public static final String ACTION_RECREATE_NOTIFICATION = "RECREATE_NOTIFICATION";
     public static final String ACTION_FORCE_NOTIFICATION_CHECK = "FORCE_NOTIFICATION_CHECK";
 
@@ -113,7 +113,7 @@ public class CalendarMonitorService extends Service {
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(
                         PowerManager.PARTIAL_WAKE_LOCK,
-                        "CalendarReminder::ServiceWakeLock");
+                        "WakeUp::ServiceWakeLock");
                 wakeLock.acquire();
                 Log.d(TAG, "WakeLock acquis");
             }
@@ -220,7 +220,7 @@ public class CalendarMonitorService extends Service {
                     // IMPORTANCE_MIN peut retarder l'affichage de la notification
                     NotificationChannel channel = new NotificationChannel(
                             CHANNEL_ID,
-                            "Calendar Reminder Service",
+                            "Wake Up Service",
                             NotificationManager.IMPORTANCE_DEFAULT
                     );
                     channel.setShowBadge(false);
@@ -254,7 +254,7 @@ public class CalendarMonitorService extends Service {
 
         long builderStart = System.currentTimeMillis();
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Calendar Reminder")
+                .setContentTitle("Wake Up")
                 .setContentText("Surveillance du calendrier active")
                 .setSmallIcon(R.drawable.ic_clock)
                 .setContentIntent(pendingIntent)
@@ -305,7 +305,7 @@ public class CalendarMonitorService extends Service {
 
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID,
-                        "Calendar Reminder Service",
+                        "Wake Up Service",
                         NotificationManager.IMPORTANCE_DEFAULT // IMPORTANCE_DEFAULT pour affichage immédiat
                 );
                 channel.setDescription("Service de surveillance du calendrier");
@@ -328,7 +328,7 @@ public class CalendarMonitorService extends Service {
         PendingIntent deletePendingIntent = createDeletePendingIntent();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Calendar Reminder")
+                .setContentTitle("Wake Up")
                 .setContentText("Surveillance du calendrier active")
                 .setSmallIcon(R.drawable.ic_clock)
                 .setContentIntent(pendingIntent)

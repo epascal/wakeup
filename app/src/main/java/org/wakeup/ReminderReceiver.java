@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -82,11 +82,11 @@ public class ReminderReceiver extends BroadcastReceiver {
 
                 NotificationChannel channel = new NotificationChannel(
                         REMINDER_CHANNEL_ID,
-                        "Rappels de calendrier",
+                        context.getString(R.string.reminder_channel_name),
                         NotificationManager.IMPORTANCE_HIGH // IMPORTANCE_HIGH pour garantir la synchronisation avec
                                                             // Garmin
                 );
-                channel.setDescription("Notifications pour les rappels d'événements du calendrier");
+                channel.setDescription(context.getString(R.string.reminder_channel_description));
                 channel.setShowBadge(true);
                 channel.enableLights(true);
                 channel.enableVibration(true);
@@ -115,12 +115,13 @@ public class ReminderReceiver extends BroadcastReceiver {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         // Construire la notification
+        String defaultEventTitle = context.getString(R.string.event_title);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_clock)
-                .setContentTitle("Rappel de calendrier")
-                .setContentText(eventTitle != null ? eventTitle : "Événement")
+                .setContentTitle(context.getString(R.string.reminder_notification_title))
+                .setContentText(eventTitle != null ? eventTitle : defaultEventTitle)
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(eventTitle != null ? eventTitle : "Événement"))
+                        .bigText(eventTitle != null ? eventTitle : defaultEventTitle))
                 .setPriority(NotificationCompat.PRIORITY_HIGH) // Haute priorité pour Android < 8
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setContentIntent(pendingIntent)

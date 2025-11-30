@@ -1,14 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Wake Up !!!</string>
-    <string name="event_title">Événement</string>
-    <string name="reminder_5m">Rappel dans 5 min</string>
-    <string name="reminder_10m">Rappel dans 10 min</string>
-    <string name="reminder_30m">Rappel dans 30 min</string>
-    <string name="reminder_1h">Rappel dans 1 heure</string>
-    <string name="done">Terminé</string>
-    <string name="no_reminders">Aucun rappel en cours</string>
-    <string name="service_running">Service de surveillance actif\n\nL\'application surveille votre calendrier en arrière-plan et affichera automatiquement les rappels 30 secondes avant chaque événement.</string>
-    <string name="calendar_permission_required">Permission calendrier requise</string>
+    <string name="event_title">Event</string>
+    <string name="reminder_5m">Reminder in 5 min</string>
+    <string name="reminder_10m">Reminder in 10 min</string>
+    <string name="reminder_30m">Reminder in 30 min</string>
+    <string name="reminder_1h">Reminder in 1 hour</string>
+    <string name="done">Done</string>
+    <string name="no_reminders">No upcoming reminders</string>
+    <string name="service_running">Monitoring service active\n\nThe application monitors your calendar in the background and will automatically display reminders 30 seconds before each event.</string>
+    <string name="calendar_permission_required">Calendar permission required</string>
+    
+    <!-- Overlay permission -->
+    <string name="overlay_permission_title">Display over other apps</string>
+    <string name="overlay_permission_message">Wake Up needs permission to display reminders over other apps and on the lock screen.\n\nTo grant this permission:\n1. Tap \"Open Settings\" below\n2. Find \"Wake Up !!!\" in the list\n3. Toggle the switch to enable \"Display over other apps\"\n4. Return to the app</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="cancel">Cancel</string>
+    <string name="overlay_permission_required">Overlay permission required</string>
+    <string name="overlay_permission_granted">Overlay permission granted</string>
+    
+    <!-- Other permissions -->
+    <string name="calendar_permission_denied">Calendar permission required to function</string>
+    <string name="service_started">Calendar monitoring service started</string>
+    
+    <!-- Test reminder -->
+    <string name="test_reminder_title">Test Reminder</string>
+    <string name="test_reminder_scheduled">Test reminder scheduled in 15 seconds</string>
+    <string name="test_reminder_button">Test reminder (15 seconds)</string>
+    <string name="test_reminder_scheduled_state">Reminder scheduled...</string>
+    <string name="exact_alarm_permission_required">Permission required for exact alarms. Please enable it in settings.</string>
+    <string name="exact_alarm_permission_denied">Error: Permission denied for exact alarms</string>
+    <string name="alarm_manager_error">Error: AlarmManager not available</string>
+    
+    <!-- Event display -->
+    <string name="reminder_past">Past reminder</string>
+    <string name="reminder_now">Reminder now</string>
+    <string name="reminder_at">Reminder at %1$s (in %2$d min)</string>
+    <string name="reminder_at_hours">Reminder at %1$s (in %2$dh%3$s)</string>
+    <string name="reminder_on">Reminder on %1$s</string>
+    <string name="event_time">Event: %1$s (reminder %2$d min before)</string>
+    <string name="no_title">(No title)</string>
+    <string name="upcoming_reminders">Upcoming Reminders</string>
+    
+    <!-- Reminder notification -->
+    <string name="reminder_notification_title">Calendar Reminder</string>
+    <string name="reminder_channel_name">Calendar Reminders</string>
+    <string name="reminder_channel_description">Notifications for calendar event reminders</string>
+    <string name="garmin_sync_info">This notification will be synced with your Garmin watch if connected via Garmin Connect</string>
+    
+    <!-- Snooze label -->
+    <string name="snooze">Snooze</string>
 </resources>
-

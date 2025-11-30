@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -15,7 +15,7 @@ public class ServiceNotificationDismissReceiver extends BroadcastReceiver {
 
     private static final int REQUEST_CODE_FALLBACK = 9001;
 
-    public static final String ACTION_SERVICE_NOTIFICATION_DISMISSED = "com.calendarreminder.SERVICE_NOTIFICATION_DISMISSED";
+    public static final String ACTION_SERVICE_NOTIFICATION_DISMISSED = "org.wakeup.SERVICE_NOTIFICATION_DISMISSED";
 
     @Override
     public void onReceive(Context context, Intent intent) {

@@ -1,47 +1,186 @@
-# Calendar Reminder
+# Wake Up
 
-Application Android qui surveille le calendrier du téléphone et affiche les rappels d'événements en plein écran, même lorsque l'écran est verrouillé.
+Android application that monitors the phone's calendar and displays event reminders in full screen, even when the screen is locked.
 
-## Fonctionnalités
+## 📱 Features
 
-- **Lecture du calendrier** : Accède aux événements et rappels du calendrier système
-- **Détection automatique** : Surveille en continu les rappels à venir
-- **Affichage plein écran** : Affiche les rappels même sur l'écran verrouillé
-- **Gestion des rappels** : Permet de reprogrammer un rappel dans 5 minutes, 10 minutes, 30 minutes ou 1 heure
-- **Bouton Done** : Permet de fermer l'écran de rappel
+- **Calendar reading** : Accesses system calendar events and reminders
+- **Automatic detection** : Continuously monitors upcoming reminders (all configured reminders)
+- **Full screen display** : Displays reminders even on locked screen
+- **Reminder management** : Allows rescheduling a reminder in 5 minutes, 10 minutes, 30 minutes, or 1 hour
+- **Done button** : Allows closing the reminder screen
+- **Background service** : Runs as foreground service to ensure continuity
+- **Garmin sync** : Notifications are optimized for synchronization with Garmin watches
 
-## Permissions requises
+## 🚀 Prerequisites
 
-- `READ_CALENDAR` : Pour lire les événements et rappels du calendrier
-- `SYSTEM_ALERT_WINDOW` : Pour afficher l'interface au-dessus d'autres applications
-- `DISABLE_KEYGUARD` : Pour afficher sur l'écran verrouillé
-- `WAKE_LOCK` : Pour réveiller l'écran lors d'un rappel
-- `POST_NOTIFICATIONS` : Pour les notifications (Android 13+)
+- **Android Studio** (recent version recommended)
+- **JDK 21** or higher (automatically downloaded by Gradle if configured)
+- **Android SDK** with API 35 (Android 15)
+- **Gradle 9.0** or higher
 
-## Installation
+## 📦 Installation
 
-1. Ouvrir le projet dans Android Studio
-2. Synchroniser les dépendances Gradle
-3. Compiler et installer sur un appareil Android (API 26+)
+### Option 1: Clone and build
 
-## Utilisation
+```bash
+# Clone the repository
+git clone https://github.com/your-username/wakeup.git
+cd wakeup
 
-1. Au premier lancement, l'application demandera les permissions nécessaires
-2. Le service de surveillance démarre automatiquement
-3. Lorsqu'un rappel d'événement est détecté, l'écran de rappel s'affiche automatiquement
-4. Utiliser les boutons pour reprogrammer le rappel ou "Terminé" pour fermer
+# The project is configured to automatically download:
+# - JDK (Java 21)
+# - Gradle dependencies
+# - Android SDK Platform 35
 
-## Structure du projet
+# Build the project
+./gradlew build
 
-- `MainActivity` : Activité principale qui démarre le service
-- `ReminderActivity` : Activité plein écran pour afficher les rappels
-- `CalendarMonitorService` : Service qui surveille le calendrier en arrière-plan
-- `BootReceiver` : Receiver pour redémarrer le service après un redémarrage
+# Install on a connected device
+./gradlew installDebug
+```
 
-## Notes techniques
+### Option 2: Open in Android Studio
 
-- Minimum SDK : 26 (Android 8.0)
-- Target SDK : 34 (Android 14)
-- Le service fonctionne en foreground pour garantir son exécution continue
-- Utilise AlarmManager pour afficher les rappels même si l'écran est verrouillé
+1. Open Android Studio
+2. File → Open → Select the project folder
+3. Android Studio will automatically:
+   - Download Gradle 9.0
+   - Download JDK 21 if needed
+   - Sync dependencies
+   - Download SDK Platform 35 if needed
+4. Wait for complete synchronization
+5. Run → Run 'app' or press Shift+F10
 
+## 🔧 Configuration
+
+### Automatic configuration
+
+The project is configured to automatically install all dependencies:
+
+- **JDK** : Automatically downloaded via `org.gradle.java.installations.auto-download=true`
+- **Android SDK** : Automatically downloaded during compilation
+- **Dependencies** : Downloaded from Maven Central and Google
+
+### Manual configuration (optional)
+
+If you prefer to use a local JDK, create a `local.properties` file at the project root:
+
+```properties
+sdk.dir=/path/to/your/android/sdk
+```
+
+**Note** : The `local.properties` file is already in `.gitignore` and will not be committed.
+
+## 📋 Required Permissions
+
+The application automatically requests the following permissions:
+
+- `READ_CALENDAR` : To read calendar events and reminders
+- `SYSTEM_ALERT_WINDOW` : To display interface above other applications
+- `DISABLE_KEYGUARD` : To display on locked screen
+- `WAKE_LOCK` : To wake the screen on reminder
+- `POST_NOTIFICATIONS` : For notifications (Android 13+)
+- `SCHEDULE_EXACT_ALARM` : To schedule exact alarms (Android 12+)
+
+## 🎯 Usage
+
+1. **First launch** : The application will request necessary permissions
+2. **Automatic start** : The monitoring service starts automatically
+3. **Reminder detection** : When an event reminder is detected (within 30 seconds), the reminder screen automatically displays
+4. **Reminder management** : Use buttons to reschedule the reminder or "Done" to close
+5. **All reminders** : The application triggers **all** configured reminders for each event (1 hour before, 1 minute before, etc.)
+
+## 🏗️ Project Structure
+
+```
+wakeup/
+├── app/
+│   ├── src/main/
+│   │   ├── java/org/wakeup/
+│   │   │   ├── MainActivity.java          # Main activity
+│   │   │   ├── ReminderActivity.java      # Full screen activity for reminders
+│   │   │   ├── CalendarMonitorService.java # Monitoring service
+│   │   │   ├── ReminderReceiver.java      # Receiver for reminders
+│   │   │   ├── BootReceiver.java          # Restart after boot
+│   │   │   └── ServiceNotificationDismissReceiver.java
+│   │   ├── res/                           # Resources (layouts, drawables, etc.)
+│   │   └── AndroidManifest.xml
+│   └── build.gradle                       # App module configuration
+├── build.gradle                           # Project configuration
+├── settings.gradle                        # Modules configuration
+├── gradle.properties                     # Gradle properties
+└── README.md
+```
+
+## 🔨 Build and Deployment
+
+### Debug Build
+
+```bash
+./gradlew assembleDebug
+```
+
+APK will be generated in `app/build/outputs/apk/debug/app-debug.apk`
+
+### Release Build
+
+```bash
+./gradlew assembleRelease
+```
+
+APK will be generated in `app/build/outputs/apk/release/app-release.apk`
+
+**Note** : To sign the release APK, configure a keystore (see [Android documentation](https://developer.android.com/studio/publish/app-signing))
+
+## 📊 Versions
+
+- **Minimum SDK** : 26 (Android 8.0)
+- **Target SDK** : 35 (Android 15)
+- **Compile SDK** : 35 (Android 15)
+- **Java** : 21
+- **Gradle** : 9.0
+- **Android Gradle Plugin** : 8.10.0
+
+## 🛠️ Dependencies
+
+- `androidx.appcompat:appcompat:1.7.0`
+- `com.google.android.material:material:1.12.0`
+- `androidx.constraintlayout:constraintlayout:2.2.0`
+
+## 🐛 Troubleshooting
+
+### Service doesn't start
+
+- Check that permissions are granted
+- Check that the service notification is visible
+- Restart the application
+
+### Reminders don't display
+
+- Check that calendar events have configured reminders
+- Check that the application has `READ_CALENDAR` permission
+- Check logs with `adb logcat | grep WakeUp`
+
+### Build fails
+
+- Check that you have an Internet connection (to download dependencies)
+- Clean the project: `./gradlew clean`
+- Delete the `.gradle` folder and try again
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+## 📝 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
+## 📧 Contact
+
+For any questions or suggestions, please open an issue on GitHub.
+
+## 🙏 Acknowledgments
+
+- AndroidX for support libraries
+- Android community for resources and documentation

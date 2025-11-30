@@ -1,4 +1,4 @@
-package com.calendarreminder;
+package org.wakeup;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
