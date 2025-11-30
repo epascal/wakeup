@@ -174,7 +174,16 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for mo
 
 ## 📝 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) with additional non-commercial restrictions.
+
+**Key points:**
+- ✅ Free for personal and non-commercial use
+- ✅ You can modify and distribute the code
+- ✅ You must share your modifications under the same license
+- ❌ **Commercial use is prohibited** without explicit written permission
+- ❌ Cannot be used in commercial products or services
+
+See the [LICENSE](LICENSE) file for full details.
 
 ## 📧 Contact
 
