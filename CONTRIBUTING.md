@@ -25,7 +25,7 @@ Feature suggestions are welcome! Please open an issue with:
 
 1. **Fork the project**
    ```bash
-   git clone https://github.com/your-username/wakeup.git
+   git clone https://github.com/epascal/wakeup.git
    cd wakeup
    ```
 

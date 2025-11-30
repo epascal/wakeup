@@ -7,7 +7,7 @@ This guide will help you get started quickly with the Wake Up project.
 ### 1. Clone the project
 
 ```bash
-git clone https://github.com/your-username/wakeup.git
+git clone https://github.com/epascal/wakeup.git
 cd wakeup
 ```
 
@@ -104,6 +104,6 @@ APK will be in: `app/build/outputs/apk/release/app-release.apk`
 
 ## 🆘 Need Help?
 
-- Open an [issue](https://github.com/your-username/wakeup/issues)
+- Open an [issue](https://github.com/epascal/wakeup/issues)
 - Check the [complete documentation](README.md)
 - Read the [contributing guide](CONTRIBUTING.md)

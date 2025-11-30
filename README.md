@@ -25,7 +25,7 @@ Android application that monitors the phone's calendar and displays event remind
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/wakeup.git
+git clone https://github.com/epascal/wakeup.git
 cd wakeup
 
 # The project is configured to automatically download:
