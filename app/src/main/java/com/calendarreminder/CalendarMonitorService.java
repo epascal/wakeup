@@ -492,13 +492,14 @@ public class CalendarMonitorService extends Service {
                         if (!shownReminders.contains(reminderKey)) {
                             shownReminders.add(reminderKey);
                             // Afficher l'activité de rappel
-                            showReminderActivity(eventId, title, eventStartTime);
+                            showReminderActivity(eventId, title, eventStartTime, minutes);
+                            Log.d(TAG, "Rappel déclenché pour l'événement " + eventId + " à " + minutes + " minutes avant");
 
                             // Nettoyer les anciens rappels après 1 heure
                             if (shownReminders.size() > 100) {
                                 shownReminders.clear();
                             }
-                            break; // Ne montrer qu'une fois
+                            // Ne pas utiliser break ici pour permettre à tous les reminders de se déclencher
                         }
                     }
                 }
@@ -509,7 +510,7 @@ public class CalendarMonitorService extends Service {
         }
     }
 
-    private void showReminderActivity(long eventId, String title, long eventStartTime) {
+    private void showReminderActivity(long eventId, String title, long eventStartTime, int minutes) {
         // Utiliser le même mécanisme que le bouton de test : BroadcastReceiver
         Intent intent = new Intent(this, ReminderReceiver.class);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, title);
@@ -519,9 +520,12 @@ public class CalendarMonitorService extends Service {
         // Utiliser AlarmManager pour s'assurer que l'activité s'affiche même si l'écran
         // est verrouillé
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        // Utiliser un requestCode unique qui combine eventId et minutes pour éviter les conflits
+        // entre plusieurs reminders du même événement
+        int requestCode = (int) ((eventId % Integer.MAX_VALUE) * 1000 + (minutes % 1000));
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 this,
-                (int) eventId,
+                requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
