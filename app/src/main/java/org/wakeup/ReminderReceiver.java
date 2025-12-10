@@ -18,10 +18,10 @@ public class ReminderReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.d(TAG, "ReminderReceiver.onReceive() appelé");
+        Log.d(TAG, "ReminderReceiver.onReceive() called");
         Log.d(TAG, "Intent: " + intent);
 
-        // Récupérer les données de l'intent
+        // Get data from intent
         String eventTitle = intent.getStringExtra(ReminderActivity.EXTRA_EVENT_TITLE);
         long eventId = intent.getLongExtra(ReminderActivity.EXTRA_EVENT_ID, -1);
         long eventStartTime = intent.getLongExtra(ReminderActivity.EXTRA_EVENT_START_TIME, 0);
@@ -30,13 +30,13 @@ public class ReminderReceiver extends BroadcastReceiver {
         Log.d(TAG, "Event ID: " + eventId);
         Log.d(TAG, "Event Start Time: " + eventStartTime);
 
-        // Créer le canal de notification pour les rappels
+        // Create notification channel for reminders
         createReminderNotificationChannel(context);
 
-        // Envoyer une notification qui sera synchronisée avec la montre Garmin
+        // Send notification that will be synced with Garmin watch
         sendReminderNotification(context, eventTitle, eventId);
 
-        // Créer un intent pour lancer ReminderActivity
+        // Create intent to launch ReminderActivity
         Intent reminderIntent = new Intent(context, ReminderActivity.class);
         reminderIntent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, eventTitle);
         reminderIntent.putExtra(ReminderActivity.EXTRA_EVENT_ID, eventId);
@@ -46,38 +46,38 @@ public class ReminderReceiver extends BroadcastReceiver {
                 Intent.FLAG_ACTIVITY_SINGLE_TOP |
                 Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
 
-        Log.d(TAG, "Lancement de ReminderActivity");
+        Log.d(TAG, "Launching ReminderActivity");
         context.startActivity(reminderIntent);
-        Log.d(TAG, "ReminderActivity lancée");
+        Log.d(TAG, "ReminderActivity launched");
     }
 
     private void createReminderNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
-                // Supprimer le canal existant pour forcer la recréation avec le nouveau pattern
+                // Delete existing channel to force recreation with new pattern
                 NotificationChannel existingChannel = manager.getNotificationChannel(REMINDER_CHANNEL_ID);
                 if (existingChannel != null) {
                     manager.deleteNotificationChannel(REMINDER_CHANNEL_ID);
-                    Log.d(TAG, "Ancien canal de notification supprimé pour recréation");
+                    Log.d(TAG, "Old notification channel deleted for recreation");
                 }
 
-                // Pattern de vibration plus intense et plus long pour la montre Garmin
-                // Format: {délai, vibration1, pause1, vibration2, pause2, ...}
-                // 5 vibrations longues (500ms) avec pauses courtes (150ms), puis pause finale
+                // More intense and longer vibration pattern for Garmin watch
+                // Format: {delay, vibration1, pause1, vibration2, pause2, ...}
+                // 5 long vibrations (500ms) with short pauses (150ms), then final pause
                 // (500ms)
                 long[] intensiveVibrationPattern = {
-                        0, // Démarrer immédiatement
-                        500, // Vibration longue 500ms
-                        150, // Pause courte
-                        500, // Vibration longue 500ms
-                        150, // Pause courte
-                        500, // Vibration longue 500ms
-                        150, // Pause courte
-                        500, // Vibration longue 500ms
-                        150, // Pause courte
-                        500, // Vibration longue 500ms
-                        500 // Pause finale avant répétition
+                        0, // Start immediately
+                        500, // Long vibration 500ms
+                        150, // Short pause
+                        500, // Long vibration 500ms
+                        150, // Short pause
+                        500, // Long vibration 500ms
+                        150, // Short pause
+                        500, // Long vibration 500ms
+                        150, // Short pause
+                        500, // Long vibration 500ms
+                        500 // Final pause before repeat
                 };
 
                 NotificationChannel channel = new NotificationChannel(
@@ -93,7 +93,7 @@ public class ReminderReceiver extends BroadcastReceiver {
                 channel.setVibrationPattern(intensiveVibrationPattern);
 
                 manager.createNotificationChannel(channel);
-                Log.d(TAG, "Canal de notification pour rappels créé avec pattern de vibration intense (5x500ms)");
+                Log.d(TAG, "Notification channel for reminders created with intense vibration pattern (5x500ms)");
             }
         }
     }
@@ -105,7 +105,7 @@ public class ReminderReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Créer un intent pour ouvrir l'activité principale quand on clique sur la
+        // Create intent to open main activity when clicking on
         // notification
         Intent notificationIntent = new Intent(context, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -122,22 +122,22 @@ public class ReminderReceiver extends BroadcastReceiver {
                 .setContentText(eventTitle != null ? eventTitle : defaultEventTitle)
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText(eventTitle != null ? eventTitle : defaultEventTitle))
-                .setPriority(NotificationCompat.PRIORITY_HIGH) // Haute priorité pour Android < 8
+                .setPriority(NotificationCompat.PRIORITY_HIGH) // High priority for Android < 8
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setContentIntent(pendingIntent)
-                .setAutoCancel(true) // La notification disparaît quand on clique dessus
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible sur écran verrouillé
-                .setVibrate(new long[] { 0, 500, 150, 500, 150, 500, 150, 500, 150, 500, 500 }) // Pattern de vibration
-                                                                                                // intense
-                .setDefaults(NotificationCompat.DEFAULT_LIGHTS); // LED par défaut
+                .setAutoCancel(true) // Notification disappears when clicked
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible on locked screen
+                .setVibrate(new long[] { 0, 500, 150, 500, 150, 500, 150, 500, 150, 500, 500 }) // Intense vibration
+                                                                                                // pattern
+                .setDefaults(NotificationCompat.DEFAULT_LIGHTS); // Default LED
 
-        // Utiliser un ID unique basé sur l'eventId pour permettre plusieurs
+        // Use unique ID based on eventId to allow multiple
         // notifications
         int notificationId = REMINDER_NOTIFICATION_ID_BASE + (int) (eventId % 1000);
 
         manager.notify(notificationId, builder.build());
-        Log.d(TAG, "Notification envoyée pour l'événement: " + eventTitle + " (ID: " + notificationId + ")");
+        Log.d(TAG, "Notification sent for event: " + eventTitle + " (ID: " + notificationId + ")");
         Log.d(TAG,
-                "Cette notification sera synchronisée avec votre montre Garmin si elle est connectée via Garmin Connect");
+                "This notification will be synced with your Garmin watch if connected via Garmin Connect");
     }
 }

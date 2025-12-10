@@ -33,53 +33,53 @@ public class CalendarMonitorService extends Service {
     public static final String ACTION_FORCE_NOTIFICATION_CHECK = "FORCE_NOTIFICATION_CHECK";
 
     private static final int NOTIFICATION_ID = 1;
-    private static final long CHECK_INTERVAL = 30000; // Vérifier toutes les 30 secondes
-    private static final long NOTIFICATION_CHECK_INTERVAL = 5000; // Vérifier la notification toutes les 5 secondes
+    private static final long CHECK_INTERVAL = 30000; // Check every 30 seconds
+    private static final long NOTIFICATION_CHECK_INTERVAL = 5000; // Check notification every 5 seconds
 
     private Handler handler;
     private Runnable checkRunnable;
     private Runnable notificationCheckRunnable;
-    private Set<String> shownReminders; // Pour éviter d'afficher le même rappel plusieurs fois
-    private PowerManager.WakeLock wakeLock; // Pour empêcher la mise en veille
+    private Set<String> shownReminders; // To avoid showing the same reminder multiple times
+    private PowerManager.WakeLock wakeLock; // To prevent sleep mode
 
     @Override
     public void onCreate() {
         super.onCreate();
         long startTime = System.currentTimeMillis();
-        Log.d(TAG, "Service onCreate() démarré à " + startTime);
+        Log.d(TAG, "Service onCreate() started at " + startTime);
         
-        // PRIORITÉ ABSOLUE: Créer le canal et démarrer en foreground IMMÉDIATEMENT
-        // Ceci doit être fait dans les 5 secondes pour éviter les crashs ANR
+        // ABSOLUTE PRIORITY: Create channel and start in foreground IMMEDIATELY
+        // This must be done within 5 seconds to avoid ANR crashes
         long channelStart = System.currentTimeMillis();
         createNotificationChannelFast();
         long channelEnd = System.currentTimeMillis();
-        Log.d(TAG, "Canal créé en " + (channelEnd - channelStart) + " ms");
+            Log.d(TAG, "Channel created in " + (channelEnd - channelStart) + " ms");
         
         long notificationStart = System.currentTimeMillis();
         try {
             Notification notification = createNotificationFast();
             long notificationCreated = System.currentTimeMillis();
-            Log.d(TAG, "Notification créée en " + (notificationCreated - notificationStart) + " ms");
+            Log.d(TAG, "Notification created in " + (notificationCreated - notificationStart) + " ms");
             
             startForeground(NOTIFICATION_ID, notification);
             long foregroundEnd = System.currentTimeMillis();
-            Log.d(TAG, "startForeground() appelé en " + (foregroundEnd - notificationCreated) + " ms");
-            Log.d(TAG, "Service démarré en foreground IMMÉDIATEMENT - Total: " + (foregroundEnd - startTime) + " ms");
-            // Vérifier rapidement que la notification est bien visible
+            Log.d(TAG, "startForeground() called in " + (foregroundEnd - notificationCreated) + " ms");
+            Log.d(TAG, "Service started in foreground IMMEDIATELY - Total: " + (foregroundEnd - startTime) + " ms");
+            // Quickly verify that the notification is visible
             new Handler(Looper.getMainLooper()).postDelayed(this::ensureNotificationIsVisible, 2000);
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors du démarrage en foreground", e);
+            Log.e(TAG, "Error starting in foreground", e);
         }
 
-        // Initialiser le reste en arrière-plan pour ne pas bloquer l'affichage de la notification
+        // Initialize the rest in background to not block notification display
         new Thread(() -> {
-            // Acquérir un WakeLock pour empêcher la mise en veille
+            // Acquire a WakeLock to prevent sleep mode
             acquireWakeLock();
 
             shownReminders = new HashSet<>();
             handler = new Handler(Looper.getMainLooper());
             
-            // Runnable pour vérifier les rappels
+            // Runnable to check reminders
             checkRunnable = new Runnable() {
                 @Override
                 public void run() {
@@ -88,7 +88,7 @@ public class CalendarMonitorService extends Service {
                 }
             };
             
-            // Runnable pour vérifier la notification
+            // Runnable to check notification
             notificationCheckRunnable = new Runnable() {
                 @Override
                 public void run() {
@@ -97,17 +97,17 @@ public class CalendarMonitorService extends Service {
                 }
             };
 
-            // Démarrer les vérifications
+            // Start checks
             handler.post(checkRunnable);
             handler.post(notificationCheckRunnable);
             
-            // Démarrer la surveillance périodique pour redémarrer le service s'il est tué
+            // Start periodic monitoring to restart service if killed
             ServiceKeepAliveReceiver.startMonitoring(CalendarMonitorService.this);
             
-            Log.d(TAG, "Initialisation en arrière-plan terminée");
+            Log.d(TAG, "Background initialization completed");
         }).start();
         
-        Log.d(TAG, "Service créé avec notification instantanée");
+        Log.d(TAG, "Service created with instant notification");
     }
 
     private void acquireWakeLock() {
@@ -118,10 +118,10 @@ public class CalendarMonitorService extends Service {
                         PowerManager.PARTIAL_WAKE_LOCK,
                         "WakeUp::ServiceWakeLock");
                 wakeLock.acquire();
-                Log.d(TAG, "WakeLock acquis");
+                Log.d(TAG, "WakeLock acquired");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de l'acquisition du WakeLock", e);
+            Log.e(TAG, "Error acquiring WakeLock", e);
         }
     }
 
@@ -129,60 +129,60 @@ public class CalendarMonitorService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
             wakeLock = null;
-            Log.d(TAG, "WakeLock libéré");
+            Log.d(TAG, "WakeLock released");
         }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         long startTime = System.currentTimeMillis();
-        Log.d(TAG, "onStartCommand() appelé à " + startTime);
+        Log.d(TAG, "onStartCommand() called at " + startTime);
         
-        // PRIORITÉ: S'assurer que la notification est affichée IMMÉDIATEMENT
-        // Utiliser createNotificationFast() pour éviter tout délai
-        // Ne pas recréer le canal ici car on ne peut pas supprimer un canal utilisé par un service foreground
+        // PRIORITY: Ensure notification is displayed IMMEDIATELY
+        // Use createNotificationFast() to avoid any delay
+        // Do not recreate channel here as we cannot delete a channel used by a foreground service
         try {
             long notificationStart = System.currentTimeMillis();
             Notification notification = createNotificationFast();
             long notificationCreated = System.currentTimeMillis();
-            Log.d(TAG, "Notification créée dans onStartCommand() en " + (notificationCreated - notificationStart) + " ms");
+            Log.d(TAG, "Notification created in onStartCommand() in " + (notificationCreated - notificationStart) + " ms");
             
             startForeground(NOTIFICATION_ID, notification);
             long foregroundEnd = System.currentTimeMillis();
-            Log.d(TAG, "startForeground() appelé dans onStartCommand() en " + (foregroundEnd - notificationCreated) + " ms");
-            Log.d(TAG, "Service en foreground dans onStartCommand() - Total: " + (foregroundEnd - startTime) + " ms");
+            Log.d(TAG, "startForeground() called in onStartCommand() in " + (foregroundEnd - notificationCreated) + " ms");
+            Log.d(TAG, "Service in foreground in onStartCommand() - Total: " + (foregroundEnd - startTime) + " ms");
             new Handler(Looper.getMainLooper()).postDelayed(this::ensureNotificationIsVisible, 2000);
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors du démarrage en foreground dans onStartCommand()", e);
+            Log.e(TAG, "Error starting in foreground in onStartCommand()", e);
         }
         
-        // S'assurer que le WakeLock est actif (en arrière-plan pour ne pas bloquer)
+        // Ensure WakeLock is active (in background to not block)
         new Thread(() -> {
             if (wakeLock == null || !wakeLock.isHeld()) {
                 acquireWakeLock();
             }
         }).start();
 
-        // Vérifier si c'est une demande de recréation de notification
+        // Check if this is a notification recreation request
         if (intent != null) {
             String action = intent.getAction();
             if (ACTION_RECREATE_NOTIFICATION.equals(action)) {
-                Log.d(TAG, "Recréation de la notification demandée");
-                // Recréer la notification en foreground avec la version complète
+                Log.d(TAG, "Notification recreation requested");
+                // Recreate notification in foreground with full version
                 NotificationManager manager = getSystemService(NotificationManager.class);
                 if (manager != null) {
                     manager.notify(NOTIFICATION_ID, createNotification());
-                    Log.d(TAG, "Notification du service recréée");
+                    Log.d(TAG, "Service notification recreated");
                 }
-                // Vérifier immédiatement et annuler les fallbacks si tout va bien
+                // Check immediately and cancel fallbacks if everything is fine
                 ensureNotificationIsVisible();
             } else if (ACTION_FORCE_NOTIFICATION_CHECK.equals(action)) {
-                Log.d(TAG, "Force notification check demandé via AlarmManager");
+                Log.d(TAG, "Force notification check requested via AlarmManager");
                 ensureNotificationIsVisible();
             }
         }
 
-        // Redémarrer le service s'il est tué et redélivrer l'intent
+        // Restart service if killed and redeliver intent
         return START_REDELIVER_INTENT;
     }
 
@@ -192,35 +192,35 @@ public class CalendarMonitorService extends Service {
     }
 
     /**
-     * Version ultra-rapide de la création du canal de notification
-     * Utilisée au démarrage pour afficher la notification instantanément
+     * Ultra-fast version of notification channel creation
+     * Used at startup to display notification instantly
      */
     private void createNotificationChannelFast() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 NotificationManager manager = getSystemService(NotificationManager.class);
                 if (manager != null) {
-                    // Vérifier si le canal existe déjà et s'il a la bonne importance
+                    // Check if channel already exists and has correct importance
                     NotificationChannel existingChannel = manager.getNotificationChannel(CHANNEL_ID);
                     if (existingChannel != null) {
-                        // Si l'importance n'est pas DEFAULT, supprimer et recréer
+                        // If importance is not DEFAULT, delete and recreate
                         if (existingChannel.getImportance() != NotificationManager.IMPORTANCE_DEFAULT) {
-                            Log.d(TAG, "Canal existant avec mauvaise importance (" + existingChannel.getImportance() + "), suppression...");
+                            Log.d(TAG, "Existing channel with wrong importance (" + existingChannel.getImportance() + "), deleting...");
                             manager.deleteNotificationChannel(CHANNEL_ID);
-                            // Attendre un peu pour que la suppression soit effective
+                            // Wait a bit for deletion to be effective
                             try {
                                 Thread.sleep(50);
                             } catch (InterruptedException e) {
-                                // Ignorer
+                                // Ignore
                             }
                         } else {
-                            Log.d(TAG, "Canal de notification existe déjà avec IMPORTANCE_DEFAULT, pas besoin de le recréer");
+                            Log.d(TAG, "Notification channel already exists with IMPORTANCE_DEFAULT, no need to recreate");
                             return;
                         }
                     }
                     
-                    // IMPORTANCE_DEFAULT pour afficher la notification immédiatement
-                    // IMPORTANCE_MIN peut retarder l'affichage de la notification
+                    // IMPORTANCE_DEFAULT to display notification immediately
+                    // IMPORTANCE_MIN may delay notification display
                     NotificationChannel channel = new NotificationChannel(
                             CHANNEL_ID,
                             "Wake Up Service",
@@ -230,17 +230,17 @@ public class CalendarMonitorService extends Service {
                     channel.enableLights(false);
                     channel.enableVibration(false);
                     manager.createNotificationChannel(channel);
-                    Log.d(TAG, "Canal de notification créé rapidement avec IMPORTANCE_DEFAULT");
+                    Log.d(TAG, "Notification channel created quickly with IMPORTANCE_DEFAULT");
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Erreur lors de la création rapide du canal", e);
+                Log.e(TAG, "Error creating channel quickly", e);
             }
         }
     }
 
     /**
-     * Version ultra-rapide de la création de notification
-     * Utilisée au démarrage pour afficher la notification instantanément
+     * Ultra-fast version of notification creation
+     * Used at startup to display notification instantly
      */
     private Notification createNotificationFast() {
         long startTime = System.currentTimeMillis();
@@ -251,14 +251,14 @@ public class CalendarMonitorService extends Service {
                 this, 0, notificationIntent,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         long intentEnd = System.currentTimeMillis();
-        Log.d(TAG, "PendingIntent créé en " + (intentEnd - intentStart) + " ms");
+        Log.d(TAG, "PendingIntent created in " + (intentEnd - intentStart) + " ms");
 
         PendingIntent deletePendingIntent = createDeletePendingIntent();
 
         long builderStart = System.currentTimeMillis();
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Wake Up")
-                .setContentText("Surveillance du calendrier active")
+                .setContentText("Calendar monitoring active")
                 .setSmallIcon(R.drawable.ic_clock)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -284,40 +284,40 @@ public class CalendarMonitorService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                // Supprimer le canal existant s'il existe pour le recréer avec la bonne
-                // importance
-                NotificationChannel existingChannel = manager.getNotificationChannel(CHANNEL_ID);
-                if (existingChannel != null) {
-                    // Vérifier si le badge est activé
-                    if (existingChannel.canShowBadge()) {
-                        manager.deleteNotificationChannel(CHANNEL_ID);
-                        Log.d(TAG, "Ancien canal supprimé (badge était activé)");
-                        // Attendre un peu pour que la suppression soit effective
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            // Ignorer
+                NotificationManager manager = getSystemService(NotificationManager.class);
+                if (manager != null) {
+                    // Delete existing channel if it exists to recreate with correct
+                    // importance
+                    NotificationChannel existingChannel = manager.getNotificationChannel(CHANNEL_ID);
+                    if (existingChannel != null) {
+                        // Check if badge is enabled
+                        if (existingChannel.canShowBadge()) {
+                            manager.deleteNotificationChannel(CHANNEL_ID);
+                            Log.d(TAG, "Old channel deleted (badge was enabled)");
+                            // Wait a bit for deletion to be effective
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                // Ignore
+                            }
+                        } else {
+                            Log.d(TAG, "Existing channel already configured without badge");
+                            return; // Channel is already correct, no need to recreate
                         }
-                    } else {
-                        Log.d(TAG, "Canal existant déjà configuré sans badge");
-                        return; // Le canal est déjà correct, pas besoin de le recréer
                     }
-                }
 
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID,
                         "Wake Up Service",
-                        NotificationManager.IMPORTANCE_DEFAULT // IMPORTANCE_DEFAULT pour affichage immédiat
+                        NotificationManager.IMPORTANCE_DEFAULT // IMPORTANCE_DEFAULT for immediate display
                 );
-                channel.setDescription("Service de surveillance du calendrier");
+                channel.setDescription("Calendar monitoring service");
                 channel.setShowBadge(false);
                 channel.enableLights(false);
                 channel.enableVibration(false);
 
                 manager.createNotificationChannel(channel);
-                Log.d(TAG, "Canal de notification créé: " + CHANNEL_ID + " avec importance DEFAULT");
+                Log.d(TAG, "Notification channel created: " + CHANNEL_ID + " with DEFAULT importance");
             }
         }
     }
@@ -332,24 +332,24 @@ public class CalendarMonitorService extends Service {
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Wake Up")
-                .setContentText("Surveillance du calendrier active")
+                .setContentText("Calendar monitoring active")
                 .setSmallIcon(R.drawable.ic_clock)
                 .setContentIntent(pendingIntent)
-                .setOngoing(true) // Notification persistante (ne peut pas être supprimée)
-                .setDeleteIntent(deletePendingIntent) // Détecter si elle est quand même supprimée
+                .setOngoing(true) // Persistent notification (cannot be dismissed)
+                .setDeleteIntent(deletePendingIntent) // Detect if it is still dismissed
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setShowWhen(false)
-                .setAutoCancel(false) // Ne pas supprimer automatiquement
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible même sur écran verrouillé
-                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE); // Pas de pastille de notification
+                .setAutoCancel(false) // Do not auto-dismiss
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Visible even on locked screen
+                .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE); // No notification badge
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
         }
 
         Notification notification = builder.build();
-        Log.d(TAG, "Notification créée avec ongoing=true, deleteIntent configuré");
+        Log.d(TAG, "Notification created with ongoing=true, deleteIntent configured");
         return notification;
     }
 
@@ -368,7 +368,7 @@ public class CalendarMonitorService extends Service {
         try {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
-                // Vérifier si la notification est toujours active
+                // Check if notification is still active
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     android.service.notification.StatusBarNotification[] notifications = manager.getActiveNotifications();
                     boolean notificationExists = false;
@@ -381,28 +381,28 @@ public class CalendarMonitorService extends Service {
                     }
                     
                     if (!notificationExists) {
-                        Log.w(TAG, "Notification manquante détectée, recréation...");
-                        // Recréer la notification
+                        Log.w(TAG, "Missing notification detected, recreating...");
+                        // Recreate notification
                         startForeground(NOTIFICATION_ID, createNotification());
-                        Log.d(TAG, "Notification recréée avec succès");
+                        Log.d(TAG, "Notification recreated successfully");
                         ServiceNotificationDismissReceiver.cancelFallback(this);
                     } else {
-                        Log.d(TAG, "Notification toujours présente");
+                        Log.d(TAG, "Notification still present");
                         ServiceNotificationDismissReceiver.cancelFallback(this);
                     }
                 } else {
-                    // Pour les versions plus anciennes, simplement mettre à jour la notification
+                    // For older versions, simply update the notification
                     manager.notify(NOTIFICATION_ID, createNotification());
                     ServiceNotificationDismissReceiver.cancelFallback(this);
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de la vérification de la notification", e);
-            // En cas d'erreur, essayer de recréer la notification
+            Log.e(TAG, "Error checking notification", e);
+            // On error, try to recreate notification
             try {
                 startForeground(NOTIFICATION_ID, createNotification());
             } catch (Exception e2) {
-                Log.e(TAG, "Erreur lors de la recréation de la notification", e2);
+                Log.e(TAG, "Error recreating notification", e2);
             }
         }
     }
@@ -413,14 +413,14 @@ public class CalendarMonitorService extends Service {
             Calendar now = Calendar.getInstance();
             long currentTime = now.getTimeInMillis();
 
-            // Vérifier les 5 prochaines minutes
+            // Check next 5 minutes
             long futureTime = currentTime + (5 * 60 * 1000);
 
-            // Récupérer tous les calendriers visibles et synchronisés
+            // Get all visible and synced calendars
             Set<Long> visibleCalendarIds = getVisibleCalendarIds(contentResolver);
-            Log.d(TAG, "Calendriers visibles trouvés: " + visibleCalendarIds.size());
+            Log.d(TAG, "Visible calendars found: " + visibleCalendarIds.size());
 
-            // Requête pour les événements avec rappels
+            // Query for events with reminders
             Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
             ContentUris.appendId(builder, currentTime);
             ContentUris.appendId(builder, futureTime);
@@ -433,9 +433,9 @@ public class CalendarMonitorService extends Service {
                     CalendarContract.Instances.CALENDAR_ID
             };
 
-            // Inclure tous les calendriers visibles et synchronisés
-            // CalendarContract.Instances inclut normalement tous les calendriers visibles,
-            // mais on s'assure explicitement avec VISIBLE = 1
+            // Include all visible and synced calendars
+            // CalendarContract.Instances normally includes all visible calendars,
+            // but we explicitly ensure with VISIBLE = 1
             String selection = CalendarContract.Instances.BEGIN + " >= ? AND " +
                     CalendarContract.Instances.BEGIN + " <= ?";
 
@@ -455,25 +455,25 @@ public class CalendarMonitorService extends Service {
                     long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID));
                     foundCalendarIds.add(calendarId);
 
-                    // Vérifier les rappels pour cet événement
+                    // Check reminders for this event
                     checkRemindersForEvent(eventId, title, begin);
                 }
                 cursor.close();
                 
-                // Log pour déboguer : vérifier si tous les calendriers visibles ont des événements
+                // Log for debugging: check if all visible calendars have events
                 if (visibleCalendarIds.size() > foundCalendarIds.size()) {
                     Set<Long> missingCalendars = new HashSet<>(visibleCalendarIds);
                     missingCalendars.removeAll(foundCalendarIds);
-                    Log.d(TAG, "Calendriers visibles sans événements dans la période: " + missingCalendars);
+                    Log.d(TAG, "Visible calendars without events in period: " + missingCalendars);
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de la vérification du calendrier", e);
+            Log.e(TAG, "Error checking calendar", e);
         }
     }
 
     /**
-     * Récupère tous les calendriers visibles et synchronisés du dispositif
+     * Gets all visible and synced calendars from the device
      */
     private Set<Long> getVisibleCalendarIds(ContentResolver contentResolver) {
         Set<Long> calendarIds = new HashSet<>();
@@ -486,7 +486,7 @@ public class CalendarMonitorService extends Service {
                     CalendarContract.Calendars.SYNC_EVENTS
             };
             
-            // Récupérer tous les calendriers visibles et synchronisés
+            // Get all visible and synced calendars
             String selection = CalendarContract.Calendars.VISIBLE + " = ? AND " +
                     CalendarContract.Calendars.SYNC_EVENTS + " = ?";
             String[] selectionArgs = { "1", "1" };
@@ -503,12 +503,12 @@ public class CalendarMonitorService extends Service {
                     long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID));
                     String displayName = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME));
                     calendarIds.add(calendarId);
-                    Log.d(TAG, "Calendrier trouvé: " + displayName + " (ID: " + calendarId + ")");
+                    Log.d(TAG, "Calendar found: " + displayName + " (ID: " + calendarId + ")");
                 }
                 cursor.close();
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de la récupération des calendriers", e);
+            Log.e(TAG, "Error retrieving calendars", e);
         }
         return calendarIds;
     }
@@ -519,7 +519,7 @@ public class CalendarMonitorService extends Service {
             Calendar now = Calendar.getInstance();
             long currentTime = now.getTimeInMillis();
 
-            // Vérifier les rappels de cet événement
+            // Check reminders for this event
             Uri remindersUri = CalendarContract.Reminders.CONTENT_URI;
             String[] projection = {
                     CalendarContract.Reminders.MINUTES,
@@ -544,46 +544,46 @@ public class CalendarMonitorService extends Service {
                     int minutes = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Reminders.MINUTES));
                     long reminderTime = eventStartTime - (minutes * 60 * 1000L);
 
-                    // Si le rappel est dans les 30 secondes à venir
+                    // If reminder is within next 30 seconds
                     long timeDiff = reminderTime - currentTime;
                     if (timeDiff >= 0 && timeDiff <= 30000) {
-                        // Créer une clé unique pour ce rappel
+                        // Create unique key for this reminder
                         String reminderKey = eventId + "_" + minutes + "_" + (reminderTime / 1000);
 
-                        // Vérifier si ce rappel n'a pas déjà été affiché
+                        // Check if this reminder has not already been shown
                         if (!shownReminders.contains(reminderKey)) {
                             shownReminders.add(reminderKey);
-                            // Afficher l'activité de rappel
+                            // Show reminder activity
                             showReminderActivity(eventId, title, eventStartTime, minutes);
-                            Log.d(TAG, "Rappel déclenché pour l'événement " + eventId + " à " + minutes + " minutes avant");
+                            Log.d(TAG, "Reminder triggered for event " + eventId + " at " + minutes + " minutes before");
 
-                            // Nettoyer les anciens rappels après 1 heure
+                            // Clean old reminders after 1 hour
                             if (shownReminders.size() > 100) {
                                 shownReminders.clear();
                             }
-                            // Ne pas utiliser break ici pour permettre à tous les reminders de se déclencher
+                            // Do not use break here to allow all reminders to trigger
                         }
                     }
                 }
                 cursor.close();
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de la vérification des rappels", e);
+            Log.e(TAG, "Error checking reminders", e);
         }
     }
 
     private void showReminderActivity(long eventId, String title, long eventStartTime, int minutes) {
-        // Utiliser le même mécanisme que le bouton de test : BroadcastReceiver
+        // Use same mechanism as test button: BroadcastReceiver
         Intent intent = new Intent(this, ReminderReceiver.class);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_TITLE, title);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_ID, eventId);
         intent.putExtra(ReminderActivity.EXTRA_EVENT_START_TIME, eventStartTime);
 
-        // Utiliser AlarmManager pour s'assurer que l'activité s'affiche même si l'écran
-        // est verrouillé
+        // Use AlarmManager to ensure activity displays even if screen
+        // is locked
         AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        // Utiliser un requestCode unique qui combine eventId et minutes pour éviter les conflits
-        // entre plusieurs reminders du même événement
+        // Use unique requestCode that combines eventId and minutes to avoid conflicts
+        // between multiple reminders of the same event
         int requestCode = (int) ((eventId % Integer.MAX_VALUE) * 1000 + (minutes % 1000));
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 this,
@@ -605,7 +605,7 @@ public class CalendarMonitorService extends Service {
                     calendar.getTimeInMillis(), pendingIntent);
         }
 
-        Log.d(TAG, "Rappel programmé pour l'événement: " + title + " (ID: " + eventId + ")");
+        Log.d(TAG, "Reminder scheduled for event: " + title + " (ID: " + eventId + ")");
     }
 
     @Override
@@ -621,8 +621,8 @@ public class CalendarMonitorService extends Service {
         }
         releaseWakeLock();
         ServiceNotificationDismissReceiver.cancelFallback(this);
-        // Ne pas annuler la surveillance ici car on veut qu'elle continue même si le service est tué
-        // ServiceKeepAliveReceiver redémarrera le service automatiquement
-        Log.d(TAG, "Service détruit");
+        // Do not cancel monitoring here as we want it to continue even if service is killed
+        // ServiceKeepAliveReceiver will automatically restart the service
+        Log.d(TAG, "Service destroyed");
     }
 }

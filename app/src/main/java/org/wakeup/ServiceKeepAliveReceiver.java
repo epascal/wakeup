@@ -11,44 +11,44 @@ import android.util.Log;
 import androidx.core.content.ContextCompat;
 
 /**
- * BroadcastReceiver qui surveille périodiquement si le service est actif
- * et le redémarre automatiquement s'il a été tué par le système.
+ * BroadcastReceiver that periodically monitors if the service is active
+ * and automatically restarts it if it has been killed by the system.
  * 
- * Ce receiver est déclenché toutes les 5 minutes par AlarmManager pour
- * s'assurer que le service reste actif même pendant la nuit.
+ * This receiver is triggered every 5 minutes by AlarmManager to
+ * ensure that the service remains active even during the night.
  */
 public class ServiceKeepAliveReceiver extends BroadcastReceiver {
     private static final String TAG = "ServiceKeepAlive";
     private static final String ACTION_KEEP_ALIVE_CHECK = "org.wakeup.KEEP_ALIVE_CHECK";
     private static final int REQUEST_CODE_KEEP_ALIVE = 9002;
     
-    // Vérifier toutes les 5 minutes
+    // Check every 5 minutes
     private static final long CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
     @Override
     public void onReceive(Context context, Intent intent) {
         if (ACTION_KEEP_ALIVE_CHECK.equals(intent.getAction())) {
-            Log.d(TAG, "Vérification de l'état du service...");
+            Log.d(TAG, "Checking service status...");
             
-            // Vérifier si le service est actif
+            // Check if the service is active
             if (!isServiceRunning(context)) {
-                Log.w(TAG, "Service non actif détecté, redémarrage...");
+                Log.w(TAG, "Inactive service detected, restarting...");
                 restartService(context);
             } else {
-                Log.d(TAG, "Service actif, pas de redémarrage nécessaire");
+                Log.d(TAG, "Service active, no restart needed");
             }
             
-            // Reprogrammer la prochaine vérification
+            // Schedule the next check
             scheduleNextCheck(context);
         }
     }
 
     /**
-     * Vérifie si le service CalendarMonitorService est actif
+     * Checks if the CalendarMonitorService is active
      */
     private boolean isServiceRunning(Context context) {
         try {
-            // Vérifier via ActivityManager si le service est en cours d'exécution
+            // Check via ActivityManager if the service is running
             android.app.ActivityManager manager = (android.app.ActivityManager) 
                 context.getSystemService(Context.ACTIVITY_SERVICE);
             
@@ -57,19 +57,19 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
                      manager.getRunningServices(Integer.MAX_VALUE)) {
                     if (CalendarMonitorService.class.getName().equals(
                             service.service.getClassName())) {
-                        Log.d(TAG, "Service trouvé actif: " + service.service.getClassName());
+                        Log.d(TAG, "Service found active: " + service.service.getClassName());
                         return true;
                     }
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de la vérification du service", e);
+            Log.e(TAG, "Error checking service", e);
         }
         return false;
     }
 
     /**
-     * Redémarre le service CalendarMonitorService
+     * Restarts the CalendarMonitorService
      */
     private void restartService(Context context) {
         try {
@@ -77,31 +77,31 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 ContextCompat.startForegroundService(context, serviceIntent);
-                Log.d(TAG, "Service redémarré en foreground");
+                Log.d(TAG, "Service restarted in foreground");
             } else {
                 context.startService(serviceIntent);
-                Log.d(TAG, "Service redémarré");
+                Log.d(TAG, "Service restarted");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors du redémarrage du service", e);
+            Log.e(TAG, "Error restarting service", e);
         }
     }
 
     /**
-     * Programme la prochaine vérification dans CHECK_INTERVAL_MS millisecondes
+     * Schedules the next check in CHECK_INTERVAL_MS milliseconds
      */
     private void scheduleNextCheck(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
-            Log.w(TAG, "AlarmManager indisponible");
+            Log.w(TAG, "AlarmManager unavailable");
             return;
         }
 
-        // Vérifier la permission pour les alarmes exactes (Android 12+)
+        // Check permission for exact alarms (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
-                Log.w(TAG, "Permission SCHEDULE_EXACT_ALARM non accordée, utilisation d'alarme inexacte");
-                // Utiliser set() au lieu de setExact() si la permission n'est pas accordée
+                Log.w(TAG, "SCHEDULE_EXACT_ALARM permission not granted, using inexact alarm");
+                // Use set() instead of setExact() if permission is not granted
                 Intent intent = new Intent(context, ServiceKeepAliveReceiver.class);
                 intent.setAction(ACTION_KEEP_ALIVE_CHECK);
                 
@@ -113,7 +113,7 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
 
                 long triggerAt = System.currentTimeMillis() + CHECK_INTERVAL_MS;
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Alarme inexacte programmée (permission manquante)");
+                Log.d(TAG, "Inexact alarm scheduled (permission missing)");
                 return;
             }
         }
@@ -131,42 +131,42 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // Utiliser setExactAndAllowWhileIdle pour fonctionner même en mode Doze
+                // Use setExactAndAllowWhileIdle to work even in Doze mode
                 alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Prochaine vérification programmée dans " + (CHECK_INTERVAL_MS / 1000) + " secondes");
+                Log.d(TAG, "Next check scheduled in " + (CHECK_INTERVAL_MS / 1000) + " seconds");
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Prochaine vérification programmée dans " + (CHECK_INTERVAL_MS / 1000) + " secondes");
+                Log.d(TAG, "Next check scheduled in " + (CHECK_INTERVAL_MS / 1000) + " seconds");
             } else {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Prochaine vérification programmée dans " + (CHECK_INTERVAL_MS / 1000) + " secondes");
+                Log.d(TAG, "Next check scheduled in " + (CHECK_INTERVAL_MS / 1000) + " seconds");
             }
         } catch (SecurityException e) {
-            Log.e(TAG, "Erreur de sécurité lors de la programmation de l'alarme", e);
+            Log.e(TAG, "Security error scheduling alarm", e);
         }
     }
 
     /**
-     * Démarre la surveillance périodique du service
-     * À appeler depuis MainActivity ou lors du démarrage du service
+     * Starts periodic monitoring of the service
+     * To be called from MainActivity or when starting the service
      */
     public static void startMonitoring(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
-            Log.w(TAG, "AlarmManager indisponible, impossible de démarrer la surveillance");
+            Log.w(TAG, "AlarmManager unavailable, cannot start monitoring");
             return;
         }
 
-        // Annuler toute surveillance existante
+        // Cancel any existing monitoring
         cancelMonitoring(context);
 
-        // Vérifier la permission pour les alarmes exactes (Android 12+)
+        // Check permission for exact alarms (Android 12+)
         boolean canScheduleExact = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             canScheduleExact = alarmManager.canScheduleExactAlarms();
             if (!canScheduleExact) {
-                Log.w(TAG, "Permission SCHEDULE_EXACT_ALARM non accordée, utilisation d'alarme inexacte");
+                Log.w(TAG, "SCHEDULE_EXACT_ALARM permission not granted, using inexact alarm");
             }
         }
 
@@ -185,21 +185,21 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
             if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Surveillance périodique démarrée avec alarme exacte");
+                Log.d(TAG, "Periodic monitoring started with exact alarm");
             } else if (canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Surveillance périodique démarrée avec alarme exacte");
+                Log.d(TAG, "Periodic monitoring started with exact alarm");
             } else {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
-                Log.d(TAG, "Surveillance périodique démarrée avec alarme inexacte (permission manquante)");
+                Log.d(TAG, "Periodic monitoring started with inexact alarm (permission missing)");
             }
         } catch (SecurityException e) {
-            Log.e(TAG, "Erreur de sécurité lors du démarrage de la surveillance", e);
+            Log.e(TAG, "Security error starting monitoring", e);
         }
     }
 
     /**
-     * Annule la surveillance périodique du service
+     * Cancels periodic monitoring of the service
      */
     public static void cancelMonitoring(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
@@ -217,7 +217,7 @@ public class ServiceKeepAliveReceiver extends BroadcastReceiver {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         alarmManager.cancel(pendingIntent);
-        Log.d(TAG, "Surveillance périodique annulée");
+        Log.d(TAG, "Periodic monitoring cancelled");
     }
 }
 

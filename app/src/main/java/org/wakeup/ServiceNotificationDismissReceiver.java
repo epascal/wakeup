@@ -22,7 +22,7 @@ public class ServiceNotificationDismissReceiver extends BroadcastReceiver {
         Log.d(TAG, "Service notification dismissed, recreating...");
 
         if (ACTION_SERVICE_NOTIFICATION_DISMISSED.equals(intent.getAction())) {
-            // Relancer le service pour qu'il recrée la notification
+            // Restart service so it recreates the notification
             Intent serviceIntent = new Intent(context, CalendarMonitorService.class);
             serviceIntent.setAction(CalendarMonitorService.ACTION_RECREATE_NOTIFICATION);
 
@@ -52,7 +52,7 @@ public class ServiceNotificationDismissReceiver extends BroadcastReceiver {
     private static void scheduleFallback(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
-            Log.w(TAG, "AlarmManager indisponible, impossible de planifier le fallback");
+            Log.w(TAG, "AlarmManager unavailable, cannot schedule fallback");
             return;
         }
 
@@ -67,7 +67,7 @@ public class ServiceNotificationDismissReceiver extends BroadcastReceiver {
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
         }
 
-        Log.d(TAG, "Fallback AlarmManager planifié dans 5s");
+        Log.d(TAG, "Fallback AlarmManager scheduled in 5s");
     }
 
     public static void cancelFallback(Context context) {
@@ -78,6 +78,6 @@ public class ServiceNotificationDismissReceiver extends BroadcastReceiver {
 
         PendingIntent pendingIntent = createFallbackPendingIntent(context);
         alarmManager.cancel(pendingIntent);
-        Log.d(TAG, "Fallback AlarmManager annulé");
+        Log.d(TAG, "Fallback AlarmManager cancelled");
     }
 }

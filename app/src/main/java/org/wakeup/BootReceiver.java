@@ -11,7 +11,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-            Log.d(TAG, "Démarrage du système détecté, redémarrage du service...");
+            Log.d(TAG, "System boot detected, restarting service...");
             
             Intent serviceIntent = new Intent(context, CalendarMonitorService.class);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -20,9 +20,9 @@ public class BootReceiver extends BroadcastReceiver {
                 context.startService(serviceIntent);
             }
             
-            // Démarrer la surveillance périodique pour s'assurer que le service reste actif
+            // Start periodic monitoring to ensure service remains active
             ServiceKeepAliveReceiver.startMonitoring(context);
-            Log.d(TAG, "Service et surveillance démarrés après le redémarrage");
+            Log.d(TAG, "Service and monitoring started after reboot");
         }
     }
 }
