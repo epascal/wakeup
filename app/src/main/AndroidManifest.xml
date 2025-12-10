@@ -94,6 +94,15 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".ServiceKeepAliveReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.calendarreminder.KEEP_ALIVE_CHECK" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

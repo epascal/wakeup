@@ -101,6 +101,9 @@ public class CalendarMonitorService extends Service {
             handler.post(checkRunnable);
             handler.post(notificationCheckRunnable);
             
+            // Démarrer la surveillance périodique pour redémarrer le service s'il est tué
+            ServiceKeepAliveReceiver.startMonitoring(CalendarMonitorService.this);
+            
             Log.d(TAG, "Initialisation en arrière-plan terminée");
         }).start();
         
@@ -413,6 +416,10 @@ public class CalendarMonitorService extends Service {
             // Vérifier les 5 prochaines minutes
             long futureTime = currentTime + (5 * 60 * 1000);
 
+            // Récupérer tous les calendriers visibles et synchronisés
+            Set<Long> visibleCalendarIds = getVisibleCalendarIds(contentResolver);
+            Log.d(TAG, "Calendriers visibles trouvés: " + visibleCalendarIds.size());
+
             // Requête pour les événements avec rappels
             Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
             ContentUris.appendId(builder, currentTime);
@@ -422,9 +429,13 @@ public class CalendarMonitorService extends Service {
                     CalendarContract.Instances.EVENT_ID,
                     CalendarContract.Instances.TITLE,
                     CalendarContract.Instances.BEGIN,
-                    CalendarContract.Instances.END
+                    CalendarContract.Instances.END,
+                    CalendarContract.Instances.CALENDAR_ID
             };
 
+            // Inclure tous les calendriers visibles et synchronisés
+            // CalendarContract.Instances inclut normalement tous les calendriers visibles,
+            // mais on s'assure explicitement avec VISIBLE = 1
             String selection = CalendarContract.Instances.BEGIN + " >= ? AND " +
                     CalendarContract.Instances.BEGIN + " <= ?";
 
@@ -436,19 +447,70 @@ public class CalendarMonitorService extends Service {
                     CalendarContract.Instances.BEGIN + " ASC");
 
             if (cursor != null) {
+                Set<Long> foundCalendarIds = new HashSet<>();
                 while (cursor.moveToNext()) {
                     long eventId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID));
                     String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE));
                     long begin = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN));
+                    long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID));
+                    foundCalendarIds.add(calendarId);
 
                     // Vérifier les rappels pour cet événement
                     checkRemindersForEvent(eventId, title, begin);
                 }
                 cursor.close();
+                
+                // Log pour déboguer : vérifier si tous les calendriers visibles ont des événements
+                if (visibleCalendarIds.size() > foundCalendarIds.size()) {
+                    Set<Long> missingCalendars = new HashSet<>(visibleCalendarIds);
+                    missingCalendars.removeAll(foundCalendarIds);
+                    Log.d(TAG, "Calendriers visibles sans événements dans la période: " + missingCalendars);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Erreur lors de la vérification du calendrier", e);
         }
+    }
+
+    /**
+     * Récupère tous les calendriers visibles et synchronisés du dispositif
+     */
+    private Set<Long> getVisibleCalendarIds(ContentResolver contentResolver) {
+        Set<Long> calendarIds = new HashSet<>();
+        try {
+            Uri calendarsUri = CalendarContract.Calendars.CONTENT_URI;
+            String[] projection = {
+                    CalendarContract.Calendars._ID,
+                    CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                    CalendarContract.Calendars.VISIBLE,
+                    CalendarContract.Calendars.SYNC_EVENTS
+            };
+            
+            // Récupérer tous les calendriers visibles et synchronisés
+            String selection = CalendarContract.Calendars.VISIBLE + " = ? AND " +
+                    CalendarContract.Calendars.SYNC_EVENTS + " = ?";
+            String[] selectionArgs = { "1", "1" };
+            
+            Cursor cursor = contentResolver.query(
+                    calendarsUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null);
+            
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID));
+                    String displayName = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME));
+                    calendarIds.add(calendarId);
+                    Log.d(TAG, "Calendrier trouvé: " + displayName + " (ID: " + calendarId + ")");
+                }
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur lors de la récupération des calendriers", e);
+        }
+        return calendarIds;
     }
 
     private void checkRemindersForEvent(long eventId, String title, long eventStartTime) {
@@ -559,6 +621,8 @@ public class CalendarMonitorService extends Service {
         }
         releaseWakeLock();
         ServiceNotificationDismissReceiver.cancelFallback(this);
+        // Ne pas annuler la surveillance ici car on veut qu'elle continue même si le service est tué
+        // ServiceKeepAliveReceiver redémarrera le service automatiquement
         Log.d(TAG, "Service détruit");
     }
 }

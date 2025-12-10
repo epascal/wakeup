@@ -37,8 +37,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -151,6 +153,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Démarrer le service quoi qu'il arrive
         startService();
+        
+        // Démarrer la surveillance périodique pour s'assurer que le service reste actif
+        ServiceKeepAliveReceiver.startMonitoring(this);
     }
 
     private void startService() {
@@ -220,6 +225,10 @@ public class MainActivity extends AppCompatActivity {
             // (par exemple, un événement dans 20 jours avec un rappel de 7 jours)
             long futureTime = currentTime + (30 * 24 * 60 * 60 * 1000L);
 
+            // Récupérer tous les calendriers visibles et synchronisés
+            Set<Long> visibleCalendarIds = getVisibleCalendarIds(contentResolver);
+            Log.d("MainActivity", "Calendriers visibles trouvés: " + visibleCalendarIds.size());
+
             Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
             ContentUris.appendId(builder, currentTime);
             ContentUris.appendId(builder, futureTime);
@@ -228,9 +237,13 @@ public class MainActivity extends AppCompatActivity {
                     CalendarContract.Instances.EVENT_ID,
                     CalendarContract.Instances.TITLE,
                     CalendarContract.Instances.BEGIN,
-                    CalendarContract.Instances.END
+                    CalendarContract.Instances.END,
+                    CalendarContract.Instances.CALENDAR_ID
             };
 
+            // Inclure tous les calendriers visibles et synchronisés
+            // CalendarContract.Instances inclut normalement tous les calendriers visibles,
+            // mais on s'assure explicitement avec VISIBLE = 1
             String selection = CalendarContract.Instances.BEGIN + " >= ? AND " +
                     CalendarContract.Instances.BEGIN + " <= ?";
 
@@ -242,17 +255,27 @@ public class MainActivity extends AppCompatActivity {
                     CalendarContract.Instances.BEGIN + " ASC");
 
             if (cursor != null) {
+                Set<Long> foundCalendarIds = new HashSet<>();
                 // Collecter TOUS les rappels de tous les événements
                 while (cursor.moveToNext()) {
                     long eventId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID));
                     String title = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE));
                     long begin = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN));
+                    long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID));
+                    foundCalendarIds.add(calendarId);
 
                     // Vérifier les rappels pour cet événement
                     List<EventReminder> eventReminders = getRemindersForEvent(eventId, title, begin);
                     reminders.addAll(eventReminders);
                 }
                 cursor.close();
+                
+                // Log pour déboguer : vérifier si tous les calendriers visibles ont des événements
+                if (visibleCalendarIds.size() > foundCalendarIds.size()) {
+                    Set<Long> missingCalendars = new HashSet<>(visibleCalendarIds);
+                    missingCalendars.removeAll(foundCalendarIds);
+                    Log.d("MainActivity", "Calendriers visibles sans événements dans la période: " + missingCalendars);
+                }
             }
 
             // Trier par heure de rappel (pas par heure d'événement) et prendre les 3
@@ -267,6 +290,47 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return reminders;
+    }
+
+    /**
+     * Récupère tous les calendriers visibles et synchronisés du dispositif
+     */
+    private Set<Long> getVisibleCalendarIds(ContentResolver contentResolver) {
+        Set<Long> calendarIds = new HashSet<>();
+        try {
+            Uri calendarsUri = CalendarContract.Calendars.CONTENT_URI;
+            String[] projection = {
+                    CalendarContract.Calendars._ID,
+                    CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                    CalendarContract.Calendars.VISIBLE,
+                    CalendarContract.Calendars.SYNC_EVENTS
+            };
+            
+            // Récupérer tous les calendriers visibles et synchronisés
+            String selection = CalendarContract.Calendars.VISIBLE + " = ? AND " +
+                    CalendarContract.Calendars.SYNC_EVENTS + " = ?";
+            String[] selectionArgs = { "1", "1" };
+            
+            Cursor cursor = contentResolver.query(
+                    calendarsUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null);
+            
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long calendarId = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID));
+                    String displayName = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME));
+                    calendarIds.add(calendarId);
+                    Log.d("MainActivity", "Calendrier trouvé: " + displayName + " (ID: " + calendarId + ")");
+                }
+                cursor.close();
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Erreur lors de la récupération des calendriers", e);
+        }
+        return calendarIds;
     }
 
     private List<EventReminder> getRemindersForEvent(long eventId, String title, long eventStartTime) {
